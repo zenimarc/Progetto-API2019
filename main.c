@@ -1,43 +1,49 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define ARRIVA printf("fin qua ci arriva \n");
 #define STAMPA(a) printf("il valore è %d", a);
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
+#define HASH_TABLE_SIZE 65536
+
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
 
+//Struct per entità
 typedef struct {
     char* name;
+
+
 } Entity;
 
-// Define a vector type
+
+//_______________________________________________________________
+// Struct per array dinamico
 typedef struct {
-    int size;      // slots used so far
+    int size;      // slots used
     int capacity;  // total available slots
-    int *data;     // array of integers we're storing
+    int *data;     // array of entity we're storing
 } Vector;
-
+// Funzioni per array dinamico
 void vector_init(Vector *vector);
-
 void vector_append(Vector *vector, int value);
-
 int vector_get(Vector *vector, int index);
-
 void vector_set(Vector *vector, int index, int value);
-
 void vector_double_capacity_if_full(Vector *vector);
-
 void vector_free(Vector *vector);
+//_________________________________________________________________
 
-unsigned long hash(char *str);
+
+
+unsigned long hash(unsigned char *str);
 
 int main() {
 
     //this simulate stdin
-    freopen("input.txt", "r", stdin);
+    freopen("names.txt", "r", stdin);
     int match = -1;
     char* command;
     char *param1, *param2, *param3;
@@ -63,22 +69,35 @@ int main() {
         STAMPA(cmd)
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
+
+
+
+
 /*
-    char a[1000][50];
-    for(int i=0; i<1000;i++)
-        strcpy(a[i], "");
+ * BLOCCO PER TEST HASH E COLLISIONI
+    char** a = (char**)malloc(HASH_TABLE_SIZE*sizeof(char*));
+    for(int i=0; i<HASH_TABLE_SIZE;i++)
+        a[i] = NULL;
     char* tempstring;
     int i=0;
-    while(scanf("%m[^\n]s", &tempstring) && i<1000){
-        int index = (hash(tempstring)%1000);
-        if (strcmp(a[index], "") == 0){
-            strcpy(a[index], tempstring);
+    int collisions =0;
+    while(scanf("%ms", &tempstring) && tempstring != NULL){
+        int index = (hash(tempstring)%HASH_TABLE_SIZE);
+        if (a[index] == NULL){
+            a[i] = tempstring;
         }
-        else
-            return 12;
+        else {
+            printf("\ntrovata collisione dopo %d parole con parola: %s e prec: %s", i, tempstring, a[index]);
+            collisions++;
+            //return 12;
+        }
         i++;
-    }*/
-/*
+    }
+    printf("\n->con una tab hash grande: %d blocchi\n"
+           "->sono state trovate %d collisioni su un tot di: %d parole in input "
+           "\n->Pari al %f percento di collisioni sulla totalità degli input", HASH_TABLE_SIZE, collisions,i, (float) collisions/i);
+*/
+ /*
     //TEST OF DYNAMIC ARRAY VECTOR TYPE
     Vector dynamic_array;
     vector_init(&dynamic_array);
@@ -137,13 +156,14 @@ void vector_free(Vector *vector) {
     free(vector->data);
 }
 
-unsigned long hash(char *str)
+unsigned long
+hash(unsigned char *str)
 {
-    unsigned long hash = 5381;
+    unsigned long hash = 5381; //5381
     int c;
 
     while (c = *str++)
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+        hash = hash * 33 + c; /* hash * 33 + c (shift 5)*/
 
     return hash;
 }
