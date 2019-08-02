@@ -8,7 +8,7 @@
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
 #define HASH_TABLE_SIZE 65536
-
+#define VECTOR_TYPE char*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
 
@@ -25,13 +25,13 @@ typedef struct {
 typedef struct {
     int size;      // slots used
     int capacity;  // total available slots
-    int *data;     // array of entity we're storing
+    VECTOR_TYPE *data;     // array of entity we're storing
 } Vector;
 // Funzioni per array dinamico
 void vector_init(Vector *vector);
-void vector_append(Vector *vector, int value);
-int vector_get(Vector *vector, int index);
-void vector_set(Vector *vector, int index, int value);
+void vector_append(Vector *vector, VECTOR_TYPE value);
+VECTOR_TYPE vector_get(Vector *vector, int index);
+void vector_set(Vector *vector, int index, VECTOR_TYPE value);
 void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
 //_________________________________________________________________
@@ -69,6 +69,16 @@ int main() {
         STAMPA(cmd)
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
+
+    Vector relations;
+    vector_init(&relations);
+    char* tempstring;
+    int i=0;
+    while(scanf("%ms", &tempstring) && tempstring != NULL){
+        vector_append(&relations, tempstring);
+        i++;
+    }
+    printf("abbiamo aggiunto %d elementi \n questoe ultimo elem: %s", i, vector_get(&relations, i-1));
 
 
 
@@ -116,10 +126,10 @@ void vector_init(Vector *vector) {
     vector->capacity = VECTOR_INITIAL_CAPACITY;
 
     // allocate memory for vector->data
-    vector->data = malloc(sizeof(int) * vector->capacity);
+    vector->data = malloc(sizeof(VECTOR_TYPE) * vector->capacity);
 }
 
-void vector_append(Vector *vector, int value) {
+void vector_append(Vector *vector, VECTOR_TYPE value) {
     // make sure there's room to expand into
     vector_double_capacity_if_full(vector);
 
@@ -127,7 +137,7 @@ void vector_append(Vector *vector, int value) {
     vector->data[vector->size++] = value;
 }
 
-int vector_get(Vector *vector, int index) {
+VECTOR_TYPE vector_get(Vector *vector, int index) {
     if (index >= vector->size || index < 0) {
         printf("Index %d out of bounds for vector of size %d\n", index, vector->size);
         exit(1);
@@ -135,10 +145,10 @@ int vector_get(Vector *vector, int index) {
     return vector->data[index];
 }
 
-void vector_set(Vector *vector, int index, int value) {
+void vector_set(Vector *vector, int index, VECTOR_TYPE value) {
     if(index > vector->capacity){
         vector->capacity += VECTOR_INCREMENT;
-        vector->data = realloc(vector->data, sizeof(int) * vector->capacity);
+        vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
     }
     // set the value at the desired index
     vector->data[index] = value;
@@ -148,7 +158,7 @@ void vector_double_capacity_if_full(Vector *vector) {
     if (vector->size >= vector->capacity) {
         // double vector->capacity and resize the allocated memory accordingly
         vector->capacity *= 2;
-        vector->data = realloc(vector->data, sizeof(int) * vector->capacity);
+        vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
     }
 }
 
