@@ -7,7 +7,7 @@
 #define STAMPA(a) printf("il valore è %d", a);
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
-#define HASH_TABLE_SIZE 65536
+#define HASH_TABLE_SIZE 10
 #define VECTOR_TYPE char*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
@@ -28,6 +28,7 @@ struct node
     int value;
     struct node *next;
 };
+//_______________________________________________________________
 // STRUCT PER ENTRY IN HASH TABLE
 struct arrayitem
 {
@@ -37,6 +38,17 @@ struct arrayitem
     struct node *tail;
     /* tail pointing the last element of Linked List at an index of Hash Table */
 };
+struct arrayitem *array; //variabile globale puntatore ad una entry della hashtable
+//________________________________________________________________
+//Funzioni per hashtable chain
+struct node* get_element(struct node *list, int find_index);
+void remove_element(int key);
+void init_array();
+void display();
+void insert(int key, int value);
+
+//_________________________________________________________________
+
 
 //_______________________________________________________________
 // Struct per array dinamico
@@ -55,13 +67,13 @@ void vector_free(Vector *vector);
 //_________________________________________________________________
 
 
-
-unsigned long hash(unsigned char *str);
+int hash(int);
+//unsigned long hash(unsigned char *str);
 
 int main() {
 
     //this simulate stdin
-    freopen("names.txt", "r", stdin);
+    freopen("words.txt", "r", stdin);
     int match = -1;
     char* command;
     char *param1, *param2, *param3;
@@ -88,6 +100,12 @@ int main() {
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
 
+    array = (struct arrayitem*) malloc(HASH_TABLE_SIZE * sizeof(struct arrayitem));
+    init_array();
+    for(int boh=0; boh<12; boh++){
+        insert(boh, boh+1);
+    }
+    display();
 
 
     /*
@@ -129,16 +147,16 @@ int main() {
            "->sono state trovate %d collisioni su un tot di: %d parole in input "
            "\n->Pari al %f percento di collisioni sulla totalità degli input", HASH_TABLE_SIZE, collisions,i, (float) collisions/i);
 */
- /*
-    //TEST OF DYNAMIC ARRAY VECTOR TYPE
-    Vector dynamic_array;
-    vector_init(&dynamic_array);
-    for(int i=0; i<1000; i++)
-        vector_append(&dynamic_array, i);
-    for(int i=0; i<1000; i++)
-        printf("\n%d", vector_get(&dynamic_array, i));
-    printf("\nget: %d", vector_get(&dynamic_array, 1));
-*/
+    /*
+       //TEST OF DYNAMIC ARRAY VECTOR TYPE
+       Vector dynamic_array;
+       vector_init(&dynamic_array);
+       for(int i=0; i<1000; i++)
+           vector_append(&dynamic_array, i);
+       for(int i=0; i<1000; i++)
+           printf("\n%d", vector_get(&dynamic_array, i));
+       printf("\nget: %d", vector_get(&dynamic_array, 1));
+   */
     return 0;
 }
 
@@ -189,7 +207,7 @@ void vector_free(Vector *vector) {
 }
 
 unsigned long
-hash(unsigned char *str)
+hash2(unsigned char *str)
 {
     unsigned long hash = 5381; //5381
     int c;
@@ -197,7 +215,209 @@ hash(unsigned char *str)
     while (c = *str++)
         hash = hash * 33 + c; /* hash * 33 + c (shift 5)*/
 
-    return hash;
+    return hash%HASH_TABLE_SIZE;
+}
+
+int hash(int key)
+{
+    return (key % HASH_TABLE_SIZE);
+}
+
+//FUNZIONI PER HASH
+/*
+ *This function finds the given key in the Linked List
+ *Returns it's index
+ *Returns -1 in case key is not present
+*/
+int find(struct node *list, int key)
+{
+    int return_value = 0;
+    struct node *temp = list;
+    while (temp != NULL)
+    {
+        if (temp->key == key)
+        {
+            return return_value;
+        }
+        temp = temp->next;
+        return_value++;
+    }
+    return -1;
+
+}
+
+void insert(int key, int value)
+{
+    //float n = 0.0;
+    /* n => Load Factor, keeps check on whether rehashing is required or not */
+
+    int index = hash(key);
+
+    /* Extracting Linked List at a given index */
+    struct node *list = (struct node*) array[index].head;
+
+    /* Creating an item to insert in the Hash Table */
+    struct node *item = (struct node*) malloc(sizeof(struct node));
+    item->key = key;
+    item->value = value;
+    item->next = NULL;
+
+    if (list == NULL)
+    {
+        /* Absence of Linked List at a given Index of Hash Table */
+
+        printf("Inserting %d(key) and %d(value) \n", key, value);
+        array[index].head = item;
+        array[index].tail = item;
+        //size++;
+
+    }
+    else
+    {
+        /* A Linked List is present at given index of Hash Table */
+
+        int find_index = find(list, key);
+        if (find_index == -1)
+        {
+            /*
+             *Key not found in existing linked list
+             *Adding the key at the end of the linked list
+            */
+
+            array[index].tail->next = item;
+            array[index].tail = item;
+            //size++;
+
+        }else
+        {
+            /*
+             *Key already present in linked list
+             *Updating the value of already existing key
+            */
+
+            struct node *element = get_element(list, find_index);
+            element->value = value;
+
+        }
+
+    }
+
+    /*Calculating Load factor
+    n = (1.0 * size) / max;
+    if (n >= 0.75)
+    {
+        //rehashing
+
+        printf("going to rehash\n");
+        rehash();
+
+    }*/
+
+}
+/* Returns the node (Linked List item) located at given index  */
+struct node* get_element(struct node *list, int index)
+{
+    int i = 0;
+    struct node *temp = list;
+    while (i != index)
+    {
+        temp = temp->next;
+        i++;
+    }
+    return temp;
+}
+/* To remove an element from Hash Table */
+void remove_element(int key)
+{
+    int index = hash(key);
+    struct node *list = (struct node*) array[index].head;
+
+    if (list == NULL)
+    {
+        printf("This key does not exists\n");
+
+    }
+    else
+    {
+        int find_index = find(list, key);
+
+        if (find_index == -1)
+        {
+            printf("This key does not exists\n");
+
+        }
+        else
+        {
+            struct node *temp = list;
+            if (temp->key == key)
+            {
+
+                array[index].head = temp->next;
+                printf("This key has been removed\n");
+                return;
+            }
+
+            while (temp->next->key != key)
+            {
+                temp = temp->next;
+            }
+
+            if (array[index].tail == temp->next)
+            {
+                temp->next = NULL;
+                array[index].tail = temp;
+
+            }
+            else
+            {
+                temp->next = temp->next->next;
+
+            }
+
+            printf("This key has been removed\n");
+
+        }
+
+    }
+
+}
+
+/* To display the contents of Hash Table */
+void display()
+{
+    int i = 0;
+    for (i = 0; i < HASH_TABLE_SIZE; i++)
+    {
+        struct node *temp = array[i].head;
+        if (temp == NULL)
+        {
+            printf("array[%d] has no elements\n", i);
+
+        }
+        else
+        {
+            printf("array[%d] has elements-: ", i);
+            while (temp != NULL)
+            {
+                printf("key= %d  value= %d\t", temp->key, temp->value);
+                temp = temp->next;
+            }
+            printf("\n");
+
+        }
+    }
+}
+
+/* For initializing the Hash Table */
+void init_array()
+{
+    int i = 0;
+    for (i = 0; i < HASH_TABLE_SIZE; i++)
+    {
+        array[i].head = NULL;
+        array[i].tail = NULL;
+    }
+
 }
 
 
