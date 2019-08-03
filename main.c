@@ -21,6 +21,24 @@ typedef struct {
 
 
 //_______________________________________________________________
+// STRUCT PER ENTRY IN LINKED LIST OF HASH TABLE
+struct node
+{
+    int key;
+    int value;
+    struct node *next;
+};
+// STRUCT PER ENTRY IN HASH TABLE
+struct arrayitem
+{
+    struct node *head;
+    /* head pointing the first element of Linked List at an index of Hash Table */
+
+    struct node *tail;
+    /* tail pointing the last element of Linked List at an index of Hash Table */
+};
+
+//_______________________________________________________________
 // Struct per array dinamico
 typedef struct {
     int size;      // slots used
@@ -70,6 +88,10 @@ int main() {
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
 
+
+
+    /*
+     * RELATIONS WITH DYNAMIC VECTOR TEST
     Vector relations;
     vector_init(&relations);
     char* tempstring;
@@ -79,7 +101,7 @@ int main() {
         i++;
     }
     printf("abbiamo aggiunto %d elementi \n questoe ultimo elem: %s", i, vector_get(&relations, i-1));
-
+    */
 
 
 
