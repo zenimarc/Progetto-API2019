@@ -7,27 +7,13 @@
 #define STAMPA(a) printf("il valore è %d", a);
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
-#define HASH_TABLE_SIZE 10
+#define HASH_TABLE_SIZE 5000
 #define VECTOR_TYPE char*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
 
-//Struct per entità
-typedef struct {
-    char* name;
 
 
-} Entity;
-
-
-//_______________________________________________________________
-// STRUCT PER ENTRY IN LINKED LIST OF HASH TABLE
-struct node
-{
-    int key;
-    int value;
-    struct node *next;
-};
 //_______________________________________________________________
 // STRUCT PER ENTRY IN HASH TABLE
 struct arrayitem
@@ -39,15 +25,7 @@ struct arrayitem
     /* tail pointing the last element of Linked List at an index of Hash Table */
 };
 struct arrayitem *array; //variabile globale puntatore ad una entry della hashtable
-//________________________________________________________________
-//Funzioni per hashtable chain
-struct node* get_element(struct node *list, int find_index);
-void remove_element(int key);
-void init_array();
-void display();
-void insert(int key, int value);
 
-//_________________________________________________________________
 
 
 //_______________________________________________________________
@@ -65,10 +43,34 @@ void vector_set(Vector *vector, int index, VECTOR_TYPE value);
 void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
 //_________________________________________________________________
+//STRUCT PER ENTITA'
+typedef struct {
+    char* name;
+    Vector* in_rel;
+    Vector* out_rel;
+} Entity;
+//_________________________________________________________________
+// STRUCT PER ENTRY IN LINKED LIST OF HASH TABLE
+struct node
+{
+    char* key;
+    Entity* value;
+    struct node *next;
+};
+//_________________________________________________________________
+//Funzioni per hashtable chain
+struct node* get_element(struct node *list, int index);
+void remove_element(int key);
+void init_array();
+void display();
+void insert(char* key, Entity* value);
+//_________________________________________________________________
+//Funzioni Entity
+Entity* entity_create(char* name);
+//_________________________________________________________________
 
-
-int hash(int);
-//unsigned long hash(unsigned char *str);
+//int hash(int);
+unsigned long hash(unsigned char *str);
 
 int main() {
 
@@ -102,8 +104,11 @@ int main() {
 
     array = (struct arrayitem*) malloc(HASH_TABLE_SIZE * sizeof(struct arrayitem));
     init_array();
-    for(int boh=0; boh<12; boh++){
-        insert(boh, boh+1);
+    char* tempstring;
+    int i=0;
+    while(scanf("%ms", &tempstring) && tempstring != NULL){
+        insert(tempstring, entity_create(tempstring));
+        i++;
     }
     display();
 
@@ -207,7 +212,7 @@ void vector_free(Vector *vector) {
 }
 
 unsigned long
-hash2(unsigned char *str)
+hash(unsigned char *str)
 {
     unsigned long hash = 5381; //5381
     int c;
@@ -218,7 +223,7 @@ hash2(unsigned char *str)
     return hash%HASH_TABLE_SIZE;
 }
 
-int hash(int key)
+int hash2(int key)
 {
     return (key % HASH_TABLE_SIZE);
 }
@@ -246,7 +251,7 @@ int find(struct node *list, int key)
 
 }
 
-void insert(int key, int value)
+void insert(char* key, Entity* value)
 {
     //float n = 0.0;
     /* n => Load Factor, keeps check on whether rehashing is required or not */
@@ -399,7 +404,7 @@ void display()
             printf("array[%d] has elements-: ", i);
             while (temp != NULL)
             {
-                printf("key= %d  value= %d\t", temp->key, temp->value);
+                printf("key= %s  value= %s\t", temp->key, temp->value->in_rel);
                 temp = temp->next;
             }
             printf("\n");
@@ -418,6 +423,15 @@ void init_array()
         array[i].tail = NULL;
     }
 
+}
+
+/* To create a new entity based on the unique name */
+Entity* entity_create(char* name){
+    Entity* entity = (Entity*) malloc(sizeof(Entity));
+    entity->name = name;
+    entity->in_rel=NULL;
+    entity->out_rel=NULL;
+    return entity;
 }
 
 
