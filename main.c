@@ -5,9 +5,11 @@
 
 #define ARRIVA printf("fin qua ci arriva \n");
 #define STAMPA(a) printf("il valore è %d", a);
+#define DEBUG 1
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
 #define HASH_TABLE_SIZE 100
+#define RELS_ARRAY_SIZE 30
 #define VECTOR_TYPE char*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
@@ -60,6 +62,15 @@ struct node
     struct node *next;
 };
 //_________________________________________________________________
+// STRUCT PER RELAZIONI (TIPO REL, PUNTATORE A HASHTABLE DI PERTINENZA E LEADERBOARD)
+struct relation
+{
+    //TODO mettere puntatore a leaderboard (da stabilire che data structure)
+    char* name;
+    Hashtable hashtable;
+};
+typedef struct relation Relation;
+//_________________________________________________________________
 //Funzioni per hashtable chain
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
@@ -70,6 +81,11 @@ void insert(struct arrayitem* hashtable, char* key, Entity* value);
 //_________________________________________________________________
 //Funzioni Entity
 Entity* entity_create(char* name);
+//_________________________________________________________________
+//Funzioni per relations array
+void relations_init(Relation* relations);
+int comparator(const void *p, const void *q);
+void relations_new_type(Relation* relations_array, char* name);
 //_________________________________________________________________
 
 //int hash(int);
@@ -104,6 +120,16 @@ int main() {
         STAMPA(cmd)
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
+
+    Relation relations[RELS_ARRAY_SIZE];
+    relations_init(relations);
+    char test[10] = "nemico_di";
+    char test2[10] = "amico_di";
+    relations_new_type(relations, test);
+    relations_new_type(relations, test2);
+    //TODO capire come funziona qsort(relations, RELS_ARRAY_SIZE, sizeof(Relation), comparator);
+    printf("\nla nuova rel e: %s\n", relations[0].name);
+    printf("\nla nuova rel e: %s\n", relations[1].name);
 
     Hashtable hashtable1 = hashtable_create();
     init_array(hashtable1);
@@ -446,7 +472,33 @@ Entity* entity_create(char* name){
     entity->out_rel=NULL;
     return entity;
 }
-
+/*To compare two relation structs*/
+int comparator(const void *p, const void *q)
+{
+    //TODO da scrivere
+    //return strcmp(rel1->name, rel2->name);
+}
+/*this function checks if relation already present and if not it adds the new relation
+ * TODO possibile miglioramento se inserisco subito ordinato e cerco ordinato*/
+void relations_new_type(Relation* relations_array, char* name){
+    for(int i=0; i<RELS_ARRAY_SIZE; i++){
+        if(relations_array[i].name != NULL) {
+            if (relations_array[i].name == name) {
+                if (DEBUG) { printf("relation %s gia presente", name); }
+            }
+        }else{
+            relations_array[i].name = name;
+            relations_array[i].hashtable = (Hashtable) malloc(sizeof(Hashtable));
+            break;
+        }
+    }
+}
+void relations_init(Relation* relations){
+    for(int i=0; i<RELS_ARRAY_SIZE; i++){
+        relations[i].hashtable = NULL;
+        relations[i].name = NULL;
+    }
+}
 
 /*
 //VERSIONE DA FILE
