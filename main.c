@@ -7,7 +7,7 @@
 #define STAMPA(a) printf("il valore è %d", a);
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
-#define HASH_TABLE_SIZE 5000
+#define HASH_TABLE_SIZE 100
 #define VECTOR_TYPE char*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
@@ -24,7 +24,8 @@ struct arrayitem
     struct node *tail;
     /* tail pointing the last element of Linked List at an index of Hash Table */
 };
-struct arrayitem *array; //variabile globale puntatore ad una entry della hashtable
+typedef struct arrayitem* Hashtable;
+
 
 
 
@@ -39,6 +40,7 @@ typedef struct {
 void vector_init(Vector *vector);
 void vector_append(Vector *vector, VECTOR_TYPE value);
 VECTOR_TYPE vector_get(Vector *vector, int index);
+int vector_size(Vector *vector);
 void vector_set(Vector *vector, int index, VECTOR_TYPE value);
 void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
@@ -59,11 +61,12 @@ struct node
 };
 //_________________________________________________________________
 //Funzioni per hashtable chain
+struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
-void remove_element(int key);
-void init_array();
-void display();
-void insert(char* key, Entity* value);
+void remove_element(struct arrayitem* hashtable, int key);
+void init_array(struct arrayitem* hashtable);
+void display(struct arrayitem* hashtable);
+void insert(struct arrayitem* hashtable, char* key, Entity* value);
 //_________________________________________________________________
 //Funzioni Entity
 Entity* entity_create(char* name);
@@ -102,15 +105,15 @@ int main() {
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
 
-    array = (struct arrayitem*) malloc(HASH_TABLE_SIZE * sizeof(struct arrayitem));
-    init_array();
+    Hashtable hashtable1 = hashtable_create();
+    init_array(hashtable1);
     char* tempstring;
     int i=0;
     while(scanf("%ms", &tempstring) && tempstring != NULL){
-        insert(tempstring, entity_create(tempstring));
+        insert(hashtable1, tempstring, entity_create(tempstring));
         i++;
     }
-    display();
+    display(hashtable1);
 
 
     /*
@@ -189,6 +192,10 @@ VECTOR_TYPE vector_get(Vector *vector, int index) {
     }
     return vector->data[index];
 }
+//this function returns the vector used slots (so the number os relations)
+int vector_size(Vector *vector){
+    return vector->size;
+}
 
 void vector_set(Vector *vector, int index, VECTOR_TYPE value) {
     if(index > vector->capacity){
@@ -229,12 +236,18 @@ int hash2(int key)
 }
 
 //FUNZIONI PER HASH
+/*This function create a new hashtable with pre defined size
+ * returns the pointer to the hashtable*/
+struct arrayitem* hashtable_create(){
+    return (struct arrayitem*) malloc(HASH_TABLE_SIZE * sizeof(struct arrayitem));
+}
+
 /*
  *This function finds the given key in the Linked List
  *Returns it's index
  *Returns -1 in case key is not present
 */
-int find(struct node *list, int key)
+int find(struct node *list, char* key)
 {
     int return_value = 0;
     struct node *temp = list;
@@ -251,7 +264,7 @@ int find(struct node *list, int key)
 
 }
 
-void insert(char* key, Entity* value)
+void insert(struct arrayitem* hashtable, char* key, Entity* value)
 {
     //float n = 0.0;
     /* n => Load Factor, keeps check on whether rehashing is required or not */
@@ -259,7 +272,7 @@ void insert(char* key, Entity* value)
     int index = hash(key);
 
     /* Extracting Linked List at a given index */
-    struct node *list = (struct node*) array[index].head;
+    struct node *list = (struct node*) hashtable[index].head;
 
     /* Creating an item to insert in the Hash Table */
     struct node *item = (struct node*) malloc(sizeof(struct node));
@@ -271,9 +284,9 @@ void insert(char* key, Entity* value)
     {
         /* Absence of Linked List at a given Index of Hash Table */
 
-        printf("Inserting %d(key) and %d(value) \n", key, value);
-        array[index].head = item;
-        array[index].tail = item;
+        printf("Inserting %s(key) and %p(value) \n", key, value);
+        hashtable[index].head = item;
+        hashtable[index].tail = item;
         //size++;
 
     }
@@ -289,8 +302,8 @@ void insert(char* key, Entity* value)
              *Adding the key at the end of the linked list
             */
 
-            array[index].tail->next = item;
-            array[index].tail = item;
+            hashtable[index].tail->next = item;
+            hashtable[index].tail = item;
             //size++;
 
         }else
@@ -332,10 +345,10 @@ struct node* get_element(struct node *list, int index)
     return temp;
 }
 /* To remove an element from Hash Table */
-void remove_element(int key)
+void remove_element(struct arrayitem* hashtable, int key)
 {
     int index = hash(key);
-    struct node *list = (struct node*) array[index].head;
+    struct node *list = (struct node*) hashtable[index].head;
 
     if (list == NULL)
     {
@@ -357,7 +370,7 @@ void remove_element(int key)
             if (temp->key == key)
             {
 
-                array[index].head = temp->next;
+                hashtable[index].head = temp->next;
                 printf("This key has been removed\n");
                 return;
             }
@@ -367,10 +380,10 @@ void remove_element(int key)
                 temp = temp->next;
             }
 
-            if (array[index].tail == temp->next)
+            if (hashtable[index].tail == temp->next)
             {
                 temp->next = NULL;
-                array[index].tail = temp;
+                hashtable[index].tail = temp;
 
             }
             else
@@ -388,12 +401,12 @@ void remove_element(int key)
 }
 
 /* To display the contents of Hash Table */
-void display()
+void display(struct arrayitem* hashtable)
 {
     int i = 0;
     for (i = 0; i < HASH_TABLE_SIZE; i++)
     {
-        struct node *temp = array[i].head;
+        struct node *temp = hashtable[i].head;
         if (temp == NULL)
         {
             printf("array[%d] has no elements\n", i);
@@ -414,13 +427,13 @@ void display()
 }
 
 /* For initializing the Hash Table */
-void init_array()
+void init_array(struct arrayitem* hashtable)
 {
     int i = 0;
     for (i = 0; i < HASH_TABLE_SIZE; i++)
     {
-        array[i].head = NULL;
-        array[i].tail = NULL;
+        hashtable[i].head = NULL;
+        hashtable[i].tail = NULL;
     }
 
 }
