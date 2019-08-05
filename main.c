@@ -75,7 +75,7 @@ typedef struct relation Relation;
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
 void remove_element(struct arrayitem* hashtable, int key);
-void init_array(struct arrayitem* hashtable);
+void hashtable_init(struct arrayitem* hashtable);
 void display(struct arrayitem* hashtable);
 void insert(struct arrayitem* hashtable, char* key, Entity* value);
 //_________________________________________________________________
@@ -127,12 +127,10 @@ int main() {
     char test2[10] = "amico_di";
     relations_new_type(relations, test);
     relations_new_type(relations, test2);
-    //TODO capire come funziona qsort(relations, RELS_ARRAY_SIZE, sizeof(Relation), comparator);
     printf("\nla nuova rel e: %s\n", relations[0].name);
     printf("\nla nuova rel e: %s\n", relations[1].name);
 
     Hashtable hashtable1 = hashtable_create();
-    init_array(hashtable1);
     char* tempstring;
     int i=0;
     while(scanf("%ms", &tempstring) && tempstring != NULL){
@@ -262,10 +260,12 @@ int hash2(int key)
 }
 
 //FUNZIONI PER HASH
-/*This function create a new hashtable with pre defined size
+/*This function create a new hashtable with pre defined size and initialize it
  * returns the pointer to the hashtable*/
 struct arrayitem* hashtable_create(){
-    return (struct arrayitem*) malloc(HASH_TABLE_SIZE * sizeof(struct arrayitem));
+    Hashtable hashtable = (struct arrayitem*) malloc(HASH_TABLE_SIZE * sizeof(struct arrayitem));
+    hashtable_init(hashtable);
+    return hashtable;
 }
 
 /*
@@ -310,7 +310,7 @@ void insert(struct arrayitem* hashtable, char* key, Entity* value)
     {
         /* Absence of Linked List at a given Index of Hash Table */
 
-        printf("Inserting %s(key) and %p(value) \n", key, value);
+        if (DEBUG) {printf("Inserting %s(key) and %p(value) \n", key, value);}
         hashtable[index].head = item;
         hashtable[index].tail = item;
         //size++;
@@ -453,7 +453,7 @@ void display(struct arrayitem* hashtable)
 }
 
 /* For initializing the Hash Table */
-void init_array(struct arrayitem* hashtable)
+void hashtable_init(struct arrayitem* hashtable)
 {
     int i = 0;
     for (i = 0; i < HASH_TABLE_SIZE; i++)
@@ -475,8 +475,10 @@ Entity* entity_create(char* name){
 /*To compare two relation structs*/
 int comparator(const void *p, const void *q)
 {
-    //TODO da scrivere
-    //return strcmp(rel1->name, rel2->name);
+    if (((Relation *) p)->name == NULL || ((Relation *) q)->name == NULL) {return 0;} else {
+        return strcmp(((Relation *) p)->name, ((Relation *) q)->name);
+    }
+
 }
 /*this function checks if relation already present and if not it adds the new relation
  * TODO possibile miglioramento se inserisco subito ordinato e cerco ordinato*/
@@ -489,6 +491,7 @@ void relations_new_type(Relation* relations_array, char* name){
         }else{
             relations_array[i].name = name;
             relations_array[i].hashtable = (Hashtable) malloc(sizeof(Hashtable));
+            qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after insert new rel we quicksort the array
             break;
         }
     }
