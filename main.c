@@ -10,7 +10,7 @@
 #define VECTOR_INCREMENT 100
 #define HASH_TABLE_SIZE 100
 #define RELS_ARRAY_SIZE 30
-#define VECTOR_TYPE char*
+#define VECTOR_TYPE struct ent*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
 
@@ -40,6 +40,7 @@ typedef struct {
 } Vector;
 // Funzioni per array dinamico
 void vector_init(Vector *vector);
+Vector* vector_create();
 void vector_append(Vector *vector, VECTOR_TYPE value);
 VECTOR_TYPE vector_get(Vector *vector, int index);
 int vector_size(Vector *vector);
@@ -48,7 +49,7 @@ void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
 //_________________________________________________________________
 //STRUCT PER ENTITA'
-typedef struct {
+typedef struct ent{
     char* name;
     Vector* in_rel;
     Vector* out_rel;
@@ -509,6 +510,13 @@ void relations_init(Relation* relations){
         relations[i].hashtable = NULL;
         relations[i].name = NULL;
     }
+}
+
+/*Create and initialize a new dynamic vector*/
+Vector* vector_create(){
+    Vector* new_vector = malloc(sizeof(Vector));
+    vector_init(new_vector);
+    return new_vector;
 }
 
 /*
