@@ -76,8 +76,8 @@ struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
 void remove_element(struct arrayitem* hashtable, int key);
 void hashtable_init(struct arrayitem* hashtable);
-void display(struct arrayitem* hashtable);
-void insert(struct arrayitem* hashtable, char* key, Entity* value);
+void hashtable_display(struct arrayitem* hashtable);
+void hashtable_insert(struct arrayitem* hashtable, char* key);
 //_________________________________________________________________
 //Funzioni Entity
 Entity* entity_create(char* name);
@@ -87,9 +87,10 @@ void relations_init(Relation* relations);
 int comparator(const void *p, const void *q);
 void relations_new_type(Relation* relations_array, char* name);
 //_________________________________________________________________
-
 //int hash(int);
 unsigned long hash(unsigned char *str);
+//_________________________________________________________________
+//FUNZIONI DEL PROGETTO
 
 int main() {
 
@@ -134,10 +135,10 @@ int main() {
     char* tempstring;
     int i=0;
     while(scanf("%ms", &tempstring) && tempstring != NULL){
-        insert(hashtable1, tempstring, entity_create(tempstring));
+        hashtable_insert(hashtable1, tempstring);
         i++;
     }
-    display(hashtable1);
+    hashtable_display(hashtable1);
 
 
     /*
@@ -290,7 +291,7 @@ int find(struct node *list, char* key)
 
 }
 
-void insert(struct arrayitem* hashtable, char* key, Entity* value)
+void hashtable_insert(struct arrayitem* hashtable, char* key)
 {
     //float n = 0.0;
     /* n => Load Factor, keeps check on whether rehashing is required or not */
@@ -300,17 +301,18 @@ void insert(struct arrayitem* hashtable, char* key, Entity* value)
     /* Extracting Linked List at a given index */
     struct node *list = (struct node*) hashtable[index].head;
 
-    /* Creating an item to insert in the Hash Table */
-    struct node *item = (struct node*) malloc(sizeof(struct node));
-    item->key = key;
-    item->value = value;
-    item->next = NULL;
 
     if (list == NULL)
     {
         /* Absence of Linked List at a given Index of Hash Table */
 
-        if (DEBUG) {printf("Inserting %s(key) and %p(value) \n", key, value);}
+        /* Creating an item to insert in the Hash Table */
+        struct node *item = (struct node*) malloc(sizeof(struct node));
+        item->key = key;
+        item->value = entity_create(key);
+        item->next = NULL;
+
+        if (DEBUG) {printf("Inserting %s(key) \n", key);}
         hashtable[index].head = item;
         hashtable[index].tail = item;
         //size++;
@@ -328,6 +330,12 @@ void insert(struct arrayitem* hashtable, char* key, Entity* value)
              *Adding the key at the end of the linked list
             */
 
+            /* Creating an item to insert in the Hash Table */
+            struct node *item = (struct node*) malloc(sizeof(struct node));
+            item->key = key;
+            item->value = entity_create(key);
+            item->next = NULL;
+
             hashtable[index].tail->next = item;
             hashtable[index].tail = item;
             //size++;
@@ -336,11 +344,11 @@ void insert(struct arrayitem* hashtable, char* key, Entity* value)
         {
             /*
              *Key already present in linked list
-             *Updating the value of already existing key
+             *nothing to do
             */
-
-            struct node *element = get_element(list, find_index);
-            element->value = value;
+            if (DEBUG){printf("%s key is already present, nothing to do", key);}
+            //struct node *element = get_element(list, find_index);
+            //element->value = value;
 
         }
 
@@ -426,8 +434,8 @@ void remove_element(struct arrayitem* hashtable, int key)
 
 }
 
-/* To display the contents of Hash Table */
-void display(struct arrayitem* hashtable)
+/* To hashtable_display the contents of Hash Table */
+void hashtable_display(struct arrayitem* hashtable)
 {
     int i = 0;
     for (i = 0; i < HASH_TABLE_SIZE; i++)
@@ -491,7 +499,7 @@ void relations_new_type(Relation* relations_array, char* name){
         }else{
             relations_array[i].name = name;
             relations_array[i].hashtable = (Hashtable) malloc(sizeof(Hashtable));
-            qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after insert new rel we quicksort the array
+            qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the array
             break;
         }
     }
