@@ -75,10 +75,11 @@ typedef struct relation Relation;
 //Funzioni per hashtable chain
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
-void remove_element(struct arrayitem* hashtable, int key);
+int remove_element(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
 void hashtable_insert(struct arrayitem* hashtable, char* key);
+int hashtable_ispresent(struct arrayitem* hashtable, char* key);
 //_________________________________________________________________
 //Funzioni Entity
 Entity* entity_create(char* name);
@@ -86,7 +87,7 @@ Entity* entity_create(char* name);
 //Funzioni per relations array
 void relations_init(Relation* relations);
 int comparator(const void *p, const void *q);
-void relations_new_type(Relation* relations_array, char* name);
+int relations_new_type(Relation* relations_array, char* name);
 //_________________________________________________________________
 //int hash(int);
 unsigned long hash(unsigned char *str);
@@ -96,7 +97,13 @@ unsigned long hash(unsigned char *str);
 int main() {
 
     //this simulate stdin
-    freopen("words.txt", "r", stdin);
+    freopen("test.txt", "r", stdin);
+    //Initialize relations array
+    Relation relations[RELS_ARRAY_SIZE];
+    relations_init(relations);
+    //Initialize general hashtable to know entites observed
+    Hashtable observed = hashtable_create();
+
     int match = -1;
     char* command;
     char *param1, *param2, *param3;
@@ -105,6 +112,7 @@ int main() {
         if (strcmp(command, "addent") == 0) {
             scanf("%ms", &param1);
             cmd = addent;
+            hashtable_insert(observed, param1);
         } else if (strcmp(command, "delent") == 0) {
             scanf("%ms", &param1);
             cmd = delent;
@@ -119,29 +127,11 @@ int main() {
         } else if(strcmp(command, "end") == 0){ //suppongo che se non è nessun altro comando allora è end.
             cmd = end;
         } else break;
-        STAMPA(cmd)
+
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
 
-    Relation relations[RELS_ARRAY_SIZE];
-    relations_init(relations);
-    char test[10] = "nemico_di";
-    char test2[10] = "amico_di";
-    relations_new_type(relations, test);
-    relations_new_type(relations, test2);
-    printf("\nla nuova rel e: %s\n", relations[0].name);
-    printf("\nla nuova rel e: %s\n", relations[1].name);
-
-    Hashtable hashtable1 = hashtable_create();
-    char* tempstring;
-    int i=0;
-    while(scanf("%ms", &tempstring) && tempstring != NULL){
-        hashtable_insert(hashtable1, tempstring);
-        i++;
-    }
-    hashtable_display(hashtable1);
-
-
+    hashtable_display(observed);
     /*
      * RELATIONS WITH DYNAMIC VECTOR TEST
     Vector relations;
@@ -291,6 +281,24 @@ int find(struct node *list, char* key)
     return -1;
 
 }
+/*This function verifies if a key is already present in the general hashtable*/
+int hashtable_ispresent(struct arrayitem* hashtable, char* key){
+    int index = hash(key);
+    struct node *list = (struct node*) hashtable[index].head;
+    if (list == NULL){
+        /* Absence of Linked List at a given Index of Hash Table */
+        return 0;
+    }else{
+        /* A Linked List is present at given index of Hash Table */
+        int find_index = find(list, key);
+        if (find_index == -1){
+            //Key not found in existing linked list
+            return 0;
+        }else{
+            return 1;
+        }
+    }
+}
 
 void hashtable_insert(struct arrayitem* hashtable, char* key)
 {
@@ -379,8 +387,10 @@ struct node* get_element(struct node *list, int index)
     }
     return temp;
 }
-/* To remove an element from Hash Table */
-void remove_element(struct arrayitem* hashtable, int key)
+/* To remove an element from Hash Table
+ * return -1 if key doesnt exist
+ * return 1 if succesfully removed*/
+int remove_element(struct arrayitem* hashtable, char* key)
 {
     int index = hash(key);
     struct node *list = (struct node*) hashtable[index].head;
@@ -388,7 +398,7 @@ void remove_element(struct arrayitem* hashtable, int key)
     if (list == NULL)
     {
         printf("This key does not exists\n");
-
+        return -1;
     }
     else
     {
@@ -397,7 +407,7 @@ void remove_element(struct arrayitem* hashtable, int key)
         if (find_index == -1)
         {
             printf("This key does not exists\n");
-
+            return -1;
         }
         else
         {
@@ -407,7 +417,7 @@ void remove_element(struct arrayitem* hashtable, int key)
 
                 hashtable[index].head = temp->next;
                 printf("This key has been removed\n");
-                return;
+                return 1;
             }
 
             while (temp->next->key != key)
@@ -428,7 +438,7 @@ void remove_element(struct arrayitem* hashtable, int key)
             }
 
             printf("This key has been removed\n");
-
+            return 1;
         }
 
     }
@@ -489,19 +499,20 @@ int comparator(const void *p, const void *q)
     }
 
 }
-/*this function checks if relation already present and if not it adds the new relation
+/*this function checks if relation already present and return array index of the rel. and if not it adds the new relation and return index
  * TODO possibile miglioramento se inserisco subito ordinato e cerco ordinato*/
-void relations_new_type(Relation* relations_array, char* name){
+int relations_new_type(Relation* relations_array, char* name){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
         if(relations_array[i].name != NULL) {
             if (relations_array[i].name == name) {
                 if (DEBUG) { printf("relation %s gia presente", name); }
+                return i;
             }
         }else{
             relations_array[i].name = name;
             relations_array[i].hashtable = (Hashtable) malloc(sizeof(Hashtable));
             qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the array
-            break;
+            return i;
         }
     }
 }
