@@ -28,9 +28,6 @@ struct arrayitem
 };
 typedef struct arrayitem* Hashtable;
 
-
-
-
 //_______________________________________________________________
 // Struct per array dinamico
 typedef struct {
@@ -38,15 +35,6 @@ typedef struct {
     int capacity;  // total available slots
     VECTOR_TYPE *data;     // array of entity we're storing
 } Vector;
-// Funzioni per array dinamico
-void vector_init(Vector *vector);
-Vector* vector_create();
-void vector_append(Vector *vector, VECTOR_TYPE value);
-VECTOR_TYPE vector_get(Vector *vector, int index);
-int vector_size(Vector *vector);
-void vector_set(Vector *vector, int index, VECTOR_TYPE value);
-void vector_double_capacity_if_full(Vector *vector);
-void vector_free(Vector *vector);
 //_________________________________________________________________
 //STRUCT PER ENTITA'
 typedef struct ent{
@@ -72,6 +60,19 @@ struct relation
 };
 typedef struct relation Relation;
 //_________________________________________________________________
+
+// Funzioni per array dinamico
+void vector_init(Vector *vector);
+Vector* vector_create();
+void vector_append(Vector *vector, VECTOR_TYPE value);
+VECTOR_TYPE vector_get(Vector *vector, int index);
+int vector_size(Vector *vector);
+int vector_find(Vector* vector, Entity* entity);
+void vector_set(Vector *vector, int index, VECTOR_TYPE value);
+void vector_double_capacity_if_full(Vector *vector);
+void vector_free(Vector *vector);
+//_________________________________________________________________
+
 //Funzioni per hashtable chain
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
@@ -79,6 +80,7 @@ int remove_element(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
+struct node* find_top(struct node *list, int max);
 int hashtable_ispresent(struct arrayitem* hashtable, char* key);
 //_________________________________________________________________
 //Funzioni Entity
@@ -93,6 +95,7 @@ int relations_new_type(Relation* relations_array, char* name);
 unsigned long hash(unsigned char *str);
 //_________________________________________________________________
 //FUNZIONI DEL PROGETTO
+void report_top(Relation* relations);
 
 int main() {
 
@@ -119,11 +122,26 @@ int main() {
         } else if (strcmp(command, "addrel") == 0) {
             scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = addrel;
-            if(hashtable_ispresent(observed, param2) && hashtable_ispresent(observed, param3)) {
+
+            if(hashtable_ispresent(observed, param1) && hashtable_ispresent(observed, param2)) {
                 /*se entrambe le entità coinvolte sono osservate procedo con inserire la relazione*/
-                Hashtable curr_hash = relations[relations_new_type(relations, param1)].hashtable;
-                struct node* ent1 = hashtable_insert(curr_hash, param2);
-                struct node* ent2 = hashtable_insert(curr_hash, param3);
+                Hashtable curr_hash = relations[relations_new_type(relations, param3)].hashtable;
+                struct node* ent1 = hashtable_insert(curr_hash, param1); //qui in pratica ent1 e ent2 sono puntatori a nodi che puntano a entità magari cambierò in punt a ent diretto.
+                struct node* ent2 = hashtable_insert(curr_hash, param2);
+                if(vector_find(ent1->value->out_rel, ent2->value) == -1) { //se non trovo ent2 nel vettore relazioni out di ent1 allora rel. non presente ancora
+                    //se i vector non sono ancora creati li creo ora
+                    if(ent1->value->out_rel == NULL){
+                        ent1->value->out_rel = vector_create();
+                        vector_init(ent1->value->out_rel);
+                    }
+                    if(ent2->value->in_rel == NULL){
+                        ent2->value->in_rel = vector_create();
+                        vector_init(ent2->value->in_rel);
+                    }
+                    vector_append(ent1->value->out_rel, ent2->value);
+                    vector_append(ent2->value->in_rel, ent1->value);
+                    if(DEBUG){printf("ho aggiunto %s %s %s", ent1->value->name, param3, ent2->value->name);}
+                }
 
             }
 
@@ -140,6 +158,7 @@ int main() {
     }
 
     hashtable_display(observed);
+    report_top(relations);
     /*
      * RELATIONS WITH DYNAMIC VECTOR TEST
     Vector relations;
@@ -237,6 +256,19 @@ void vector_double_capacity_if_full(Vector *vector) {
         vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
     }
 }
+/*this function tries to find an entity in the vector and if found returns its index
+ * else return -1 if entity not found*/
+int vector_find(Vector* vector, Entity* entity){
+    if(vector == NULL){
+        return -1;
+    }
+    for(int i=0; i<vector->size; i++) //TODO verificare che non sia sballato di 1 e magari bisognerà ottimizzare ricerca
+        if(vector->data[i] == entity){
+            /*if we've found the entity the relations is present*/
+            return i;
+        }
+    return -1;
+}
 
 void vector_free(Vector *vector) {
     free(vector->data);
@@ -279,7 +311,7 @@ int find(struct node *list, char* key)
     struct node *temp = list;
     while (temp != NULL)
     {
-        if (temp->key == key)
+        if (strcmp(temp->key, key) == 0)
         {
             return return_value;
         }
@@ -300,9 +332,29 @@ struct node* find_pointer(struct node *list, char* key)
     struct node *temp = list;
     while (temp != NULL)
     {
-        if (temp->key == key)
+        if (strcmp(temp->key, key) == 0)
         {
             return temp;
+        }
+        temp = temp->next;
+        return_value++;
+    }
+    return NULL;
+}
+/*
+ *This function finds the top entity in the Linked List if has more inrel than indicated (max)
+ *Returns it's pointer if present else NULL
+*/
+struct node* find_top(struct node *list, int max)
+{
+    int return_value = 0;
+    struct node *temp = list;
+    while (temp != NULL){
+        if(temp->value->in_rel != NULL){
+            if (temp->value->in_rel->size >= max)
+            {
+                return temp;
+            }
         }
         temp = temp->next;
         return_value++;
@@ -534,13 +586,13 @@ int comparator(const void *p, const void *q)
 int relations_new_type(Relation* relations_array, char* name){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
         if(relations_array[i].name != NULL) {
-            if (relations_array[i].name == name) {
+            if (strcmp(relations_array[i].name, name) == 0) {
                 if (DEBUG) { printf("relation %s gia presente", name); }
                 return i;
             }
         }else{
             relations_array[i].name = name;
-            relations_array[i].hashtable = (Hashtable) malloc(sizeof(Hashtable));
+            relations_array[i].hashtable = hashtable_create();
             qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the array
             return relations_new_type(relations_array, name); //TODO verifcare se funziona
         }
@@ -550,6 +602,31 @@ void relations_init(Relation* relations){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
         relations[i].hashtable = NULL;
         relations[i].name = NULL;
+    }
+}
+//TODO per ora trova solo una entity con inrel max ma dobbiamo salvare tutte quelle parimerito (array di supporto)
+void report_top(Relation* relations){
+    Hashtable curr_hash;
+    int maxrel=0;
+    struct node* topent = NULL;
+    struct node* possible_topent = NULL;
+    for(int i=0; i<RELS_ARRAY_SIZE; i++) {
+        curr_hash = relations[i].hashtable;
+        if (curr_hash != NULL) {
+            if(DEBUG){printf("\nsto testando %s", relations[i].name);}
+            for (int j = 0; j < HASH_TABLE_SIZE; j++) {
+                if (curr_hash[j].head != NULL) {
+                    possible_topent = find_top(curr_hash[j].head, maxrel);
+                    if(possible_topent != NULL) {
+                        topent = possible_topent;
+                        maxrel = topent->value->in_rel->size;
+                    }
+                }
+            }
+            if(topent != NULL){
+                printf("la top entity e: %s con %d relsin", topent->value->name, maxrel);
+            }
+        }else return;
     }
 }
 
