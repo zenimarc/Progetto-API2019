@@ -78,7 +78,7 @@ struct node* get_element(struct node *list, int index);
 int remove_element(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
-void hashtable_insert(struct arrayitem* hashtable, char* key);
+struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
 int hashtable_ispresent(struct arrayitem* hashtable, char* key);
 //_________________________________________________________________
 //Funzioni Entity
@@ -119,6 +119,14 @@ int main() {
         } else if (strcmp(command, "addrel") == 0) {
             scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = addrel;
+            if(hashtable_ispresent(observed, param2) && hashtable_ispresent(observed, param3)) {
+                /*se entrambe le entità coinvolte sono osservate procedo con inserire la relazione*/
+                Hashtable curr_hash = relations[relations_new_type(relations, param1)].hashtable;
+                struct node* ent1 = hashtable_insert(curr_hash, param2);
+                struct node* ent2 = hashtable_insert(curr_hash, param3);
+
+            }
+
         } else if (strcmp(command, "delrel") == 0) {
             scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = delrel;
@@ -279,7 +287,27 @@ int find(struct node *list, char* key)
         return_value++;
     }
     return -1;
+}
 
+/*
+ *This function finds the given key in the Linked List
+ *Returns it's pointer if present
+ *Returns NULL in case key is not present
+*/
+struct node* find_pointer(struct node *list, char* key)
+{
+    int return_value = 0;
+    struct node *temp = list;
+    while (temp != NULL)
+    {
+        if (temp->key == key)
+        {
+            return temp;
+        }
+        temp = temp->next;
+        return_value++;
+    }
+    return NULL;
 }
 /*This function verifies if a key is already present in the general hashtable*/
 int hashtable_ispresent(struct arrayitem* hashtable, char* key){
@@ -299,8 +327,9 @@ int hashtable_ispresent(struct arrayitem* hashtable, char* key){
         }
     }
 }
-
-void hashtable_insert(struct arrayitem* hashtable, char* key)
+/*inserisce una nuova entità se non presente e restituisce il puntatore al node della lista che contiene i riferimenti per l'entità
+ * se restituisce NULL è perchè è già presente l'entità*/
+struct node* hashtable_insert(struct arrayitem* hashtable, char* key)
 {
     //float n = 0.0;
     /* n => Load Factor, keeps check on whether rehashing is required or not */
@@ -325,14 +354,14 @@ void hashtable_insert(struct arrayitem* hashtable, char* key)
         hashtable[index].head = item;
         hashtable[index].tail = item;
         //size++;
-
+        return item;
     }
     else
     {
         /* A Linked List is present at given index of Hash Table */
 
-        int find_index = find(list, key);
-        if (find_index == -1)
+        struct node* pointer_found = find_pointer(list, key);
+        if (pointer_found == NULL)
         {
             /*
              *Key not found in existing linked list
@@ -348,6 +377,7 @@ void hashtable_insert(struct arrayitem* hashtable, char* key)
             hashtable[index].tail->next = item;
             hashtable[index].tail = item;
             //size++;
+            return item;
 
         }else
         {
@@ -358,7 +388,7 @@ void hashtable_insert(struct arrayitem* hashtable, char* key)
             if (DEBUG){printf("%s key is already present, nothing to do", key);}
             //struct node *element = get_element(list, find_index);
             //element->value = value;
-
+            return pointer_found;
         }
 
     }
@@ -512,7 +542,7 @@ int relations_new_type(Relation* relations_array, char* name){
             relations_array[i].name = name;
             relations_array[i].hashtable = (Hashtable) malloc(sizeof(Hashtable));
             qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the array
-            return i;
+            return relations_new_type(relations_array, name); //TODO verifcare se funziona
         }
     }
 }
