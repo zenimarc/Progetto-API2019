@@ -9,7 +9,7 @@
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
 #define HASH_TABLE_SIZE 100
-#define RELS_ARRAY_SIZE 30
+#define RELS_ARRAY_SIZE 100
 #define VECTOR_TYPE struct ent*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
@@ -17,7 +17,7 @@ enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
 
 
 //_______________________________________________________________
-// STRUCT PER ENTRY IN HASH TABLE
+// STRUCT PER ENTRY IN HASH TABLE797
 struct arrayitem
 {
     struct node *head;
@@ -54,7 +54,8 @@ struct node
 // STRUCT PER RELAZIONI (TIPO REL, PUNTATORE A HASHTABLE DI PERTINENZA E LEADERBOARD)
 struct relation
 {
-    //TODO mettere puntatore a leaderboard (da stabilire che data structure)
+    Vector* leaderboard;
+    int max_inrel;
     char* name;
     Hashtable hashtable;
 };
@@ -71,6 +72,8 @@ int vector_find(Vector* vector, Entity* entity);
 void vector_set(Vector *vector, int index, VECTOR_TYPE value);
 void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
+int vector_max(Vector* vector);
+int leaderboard_update(Relation* curr_rel, Entity* ent);
 //_________________________________________________________________
 
 //Funzioni per hashtable chain
@@ -89,12 +92,14 @@ Entity* entity_create(char* name);
 //Funzioni per relations array
 void relations_init(Relation* relations);
 int comparator(const void *p, const void *q);
+int entity_comparator(const void *p, const void *q);
 int relations_new_type(Relation* relations_array, char* name);
 //_________________________________________________________________
 //int hash(int);
 unsigned long hash(unsigned char *str);
 //_________________________________________________________________
 //FUNZIONI DEL PROGETTO
+void fix_report_top(Relation* relations);
 void report_top(Relation* relations);
 
 int main() {
@@ -125,10 +130,11 @@ int main() {
 
             if(hashtable_ispresent(observed, param1) && hashtable_ispresent(observed, param2)) {
                 /*se entrambe le entità coinvolte sono osservate procedo con inserire la relazione*/
-                Hashtable curr_hash = relations[relations_new_type(relations, param3)].hashtable;
+                int rel_index = relations_new_type(relations, param3);
+                Hashtable curr_hash = relations[rel_index].hashtable;
                 struct node* ent1 = hashtable_insert(curr_hash, param1); //qui in pratica ent1 e ent2 sono puntatori a nodi che puntano a entità magari cambierò in punt a ent diretto.
                 struct node* ent2 = hashtable_insert(curr_hash, param2);
-                if(vector_find(ent1->value->out_rel, ent2->value) == -1) { //se non trovo ent2 nel vettore relazioni out di ent1 allora rel. non presente ancora
+                if(vector_find(ent1->value->out_rel, ent2->value) == -1) { //se non trovo ent2 nel vettore relazioni out di ent1 allora rel. non presente ancora, quindi AGGIUNGO rel.
                     //se i vector non sono ancora creati li creo ora
                     if(ent1->value->out_rel == NULL){
                         ent1->value->out_rel = vector_create();
@@ -140,7 +146,13 @@ int main() {
                     }
                     vector_append(ent1->value->out_rel, ent2->value);
                     vector_append(ent2->value->in_rel, ent1->value);
-                    if(DEBUG){printf("ho aggiunto %s %s %s", ent1->value->name, param3, ent2->value->name);}
+                    if(DEBUG){printf("\nho aggiunto %s %s %s", ent1->value->name, param3, ent2->value->name);}
+                    //aggiornamento leaderboard della rel corrente
+                    leaderboard_update(&relations[rel_index], ent2->value);
+
+
+                }else{
+                    printf("\nrelazione %s %s %s GIA PRESENTE", ent1->value->name, param3, ent2->value->name);
                 }
 
             }
@@ -150,6 +162,10 @@ int main() {
             cmd = delrel;
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
+            for(int i=0; i<RELS_ARRAY_SIZE; i++){
+                qsort(relations[i].leaderboard, relations[i].leaderboard->size, sizeof(struct ent*), entity_comparator); //TODO tenere d'occhio magari leaderboard->data
+            }
+            report_top(relations);
         } else if(strcmp(command, "end") == 0){ //suppongo che se non è nessun altro comando allora è end.
             cmd = end;
         } else break;
@@ -579,7 +595,18 @@ int comparator(const void *p, const void *q)
     if (((Relation *) p)->name == NULL || ((Relation *) q)->name == NULL) {return 0;} else {
         return strcmp(((Relation *) p)->name, ((Relation *) q)->name);
     }
-
+}
+/*To compare two Entity structs*/
+int entity_comparator(const void *p, const void *q){
+    if (((Entity *) p)->name == NULL || ((Entity *) q)->name == NULL || ((Entity *) p)->in_rel == NULL || ((Entity *) q)->in_rel == NULL) {return 0;} else {
+        if(((Entity*)p)->in_rel->size == ((Entity*)q)->in_rel->size) {
+            return strcmp(((Entity *) p)->name, ((Entity *) q)->name);
+        }else if(((Entity*)p)->in_rel->size < ((Entity*)q)->in_rel->size) {
+            return -1;
+        }else{
+            return 1;
+        }
+    }
 }
 /*this function checks if relation already present and return array index of the rel. and if not it adds the new relation and return index
  * TODO possibile miglioramento se inserisco subito ordinato e cerco ordinato*/
@@ -587,13 +614,14 @@ int relations_new_type(Relation* relations_array, char* name){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
         if(relations_array[i].name != NULL) {
             if (strcmp(relations_array[i].name, name) == 0) {
-                if (DEBUG) { printf("relation %s gia presente", name); }
+                if (DEBUG) { printf("\nrelation %s gia presente", name); }
                 return i;
             }
         }else{
             relations_array[i].name = name;
             relations_array[i].hashtable = hashtable_create();
-            qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the array
+            relations_array[i].leaderboard = vector_create();
+            qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the relations array
             return relations_new_type(relations_array, name); //TODO verifcare se funziona
         }
     }
@@ -602,10 +630,12 @@ void relations_init(Relation* relations){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
         relations[i].hashtable = NULL;
         relations[i].name = NULL;
+        relations[i].leaderboard = vector_create();
+        relations[i].max_inrel = 0;
     }
 }
 //TODO per ora trova solo una entity con inrel max ma dobbiamo salvare tutte quelle parimerito (array di supporto)
-void report_top(Relation* relations){
+void fix_report_top(Relation* relations){
     Hashtable curr_hash;
     int maxrel=0;
     struct node* topent = NULL;
@@ -629,12 +659,65 @@ void report_top(Relation* relations){
         }else return;
     }
 }
+void leaderboard_print_names(Vector* leaderboard){
+    for(int i=0; i<leaderboard->size; i++){
+        printf("%s", leaderboard->data[i]->name);
+    }
+}
+
+void report_top(Relation* relations) {
+    Vector* curr_leaderboard = NULL;
+    for (int i = 0; i < RELS_ARRAY_SIZE; i++) {
+        curr_leaderboard = relations[i].leaderboard;
+        if (curr_leaderboard != NULL && curr_leaderboard->size != 0) {
+            printf("%s", relations[i].name);
+            leaderboard_print_names(curr_leaderboard);
+            printf("%d\n", curr_leaderboard->data[0]->in_rel->size);
+        }
+    }
+}
 
 /*Create and initialize a new dynamic vector*/
 Vector* vector_create(){
     Vector* new_vector = malloc(sizeof(Vector));
     vector_init(new_vector);
     return new_vector;
+}
+/*this function find the max value */
+int vector_max(Vector* vector){
+    int max=0;
+    for(int i=0; i<vector->size; i++){
+        if(vector->data[i]->in_rel->size >= max){
+            max = vector->data[i]->in_rel->size;
+        }
+    }
+    return max;
+}
+/*this function update the leaderboard adding new entities with same score and return 0; But if the new entity is higher
+ * free the leaderboard and return -1 so the caller know to create a new leaderboard with this entity*/
+int leaderboard_update(Relation* curr_rel, Entity* ent){
+    if(curr_rel->leaderboard->size != 0){
+        if(ent->in_rel->size > curr_rel->max_inrel){
+            /*in this case the new entity is strictly major than the old one
+             * delete or re-init all leaderboard and add this new entity*/
+            // in caso arriva -1 significa che dobbiamo resettare la leaderboard perche trovata nuova ent con più punteggio, la aggiungiamo subito dopo
+            vector_free(curr_rel->leaderboard);
+            curr_rel->leaderboard = vector_create();
+            vector_append(curr_rel->leaderboard, ent);
+            //aggiorno maxinrel con nuovo score di entità appena aggiunta
+            curr_rel->max_inrel = ent->in_rel->size;
+            return -1;
+        }else if(ent->in_rel->size == curr_rel->max_inrel){
+            /*if vector contains entities with same score we appnd the new one and than quicksort by name*/
+            vector_append(curr_rel->leaderboard, ent);
+            return 0;
+        }else{
+            return 0;
+        }
+    }
+    vector_append(curr_rel->leaderboard, ent);
+    curr_rel->max_inrel = ent->in_rel->size;
+    return 0;
 }
 
 /*
