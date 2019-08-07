@@ -5,11 +5,11 @@
 
 #define ARRIVA printf("fin qua ci arriva \n");
 #define STAMPA(a) printf("il valore è %d", a);
-#define DEBUG 1
+#define DEBUG 0
 #define VECTOR_INITIAL_CAPACITY 100
 #define VECTOR_INCREMENT 100
 #define HASH_TABLE_SIZE 100
-#define RELS_ARRAY_SIZE 100
+#define RELS_ARRAY_SIZE 20
 #define VECTOR_TYPE struct ent*
 
 enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
@@ -17,7 +17,7 @@ enum cmd {addent=0, delent=1, addrel=2, delrel=3, report=4, end=5};
 
 
 //_______________________________________________________________
-// STRUCT PER ENTRY IN HASH TABLE797
+// STRUCT PER ENTRY IN HASH TABLE
 struct arrayitem
 {
     struct node *head;
@@ -72,6 +72,7 @@ int vector_find(Vector* vector, Entity* entity);
 void vector_set(Vector *vector, int index, VECTOR_TYPE value);
 void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
+void vector_qsort(Vector* vector);
 int vector_max(Vector* vector);
 int leaderboard_update(Relation* curr_rel, Entity* ent);
 //_________________________________________________________________
@@ -152,7 +153,7 @@ int main() {
 
 
                 }else{
-                    printf("\nrelazione %s %s %s GIA PRESENTE", ent1->value->name, param3, ent2->value->name);
+                    if (DEBUG) {printf("\nrelazione %s %s %s GIA PRESENTE", ent1->value->name, param3, ent2->value->name);}
                 }
 
             }
@@ -163,7 +164,7 @@ int main() {
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
             for(int i=0; i<RELS_ARRAY_SIZE; i++){
-                qsort(relations[i].leaderboard, relations[i].leaderboard->size, sizeof(struct ent*), entity_comparator); //TODO tenere d'occhio magari leaderboard->data
+                vector_qsort(relations[i].leaderboard);
             }
             report_top(relations);
         } else if(strcmp(command, "end") == 0){ //suppongo che se non è nessun altro comando allora è end.
@@ -596,8 +597,16 @@ int comparator(const void *p, const void *q)
         return strcmp(((Relation *) p)->name, ((Relation *) q)->name);
     }
 }
-/*To compare two Entity structs*/
+
 int entity_comparator(const void *p, const void *q){
+    if (((Entity *) p)->name == NULL || ((Entity *) q)->name == NULL) {return 0;} else {
+        return strcmp(((Entity *) p)->name, ((Entity *) q)->name);
+    }
+}
+
+/*To compare two Entity structs
+ * TODO: non va la comparazione della inrel size ma nell'attuale impl non serve e viene usata funz sopra.*/
+int entity_comparator2(const void *p, const void *q){
     if (((Entity *) p)->name == NULL || ((Entity *) q)->name == NULL || ((Entity *) p)->in_rel == NULL || ((Entity *) q)->in_rel == NULL) {return 0;} else {
         if(((Entity*)p)->in_rel->size == ((Entity*)q)->in_rel->size) {
             return strcmp(((Entity *) p)->name, ((Entity *) q)->name);
@@ -666,15 +675,21 @@ void leaderboard_print_names(Vector* leaderboard){
 }
 
 void report_top(Relation* relations) {
+    int blank = 1;
     Vector* curr_leaderboard = NULL;
     for (int i = 0; i < RELS_ARRAY_SIZE; i++) {
         curr_leaderboard = relations[i].leaderboard;
         if (curr_leaderboard != NULL && curr_leaderboard->size != 0) {
+            blank = 0;
             printf("%s", relations[i].name);
             leaderboard_print_names(curr_leaderboard);
-            printf("%d\n", curr_leaderboard->data[0]->in_rel->size);
+            printf("%d ", curr_leaderboard->data[0]->in_rel->size);
         }
     }
+    if (blank){
+        printf("none");
+    }
+    printf("\n");
 }
 
 /*Create and initialize a new dynamic vector*/
@@ -693,6 +708,10 @@ int vector_max(Vector* vector){
     }
     return max;
 }
+void vector_qsort(Vector* vector){
+    qsort(vector->data, vector->capacity, sizeof(VECTOR_TYPE), entity_comparator); //TODO tenere d'occhio
+}
+
 /*this function update the leaderboard adding new entities with same score and return 0; But if the new entity is higher
  * free the leaderboard and return -1 so the caller know to create a new leaderboard with this entity*/
 int leaderboard_update(Relation* curr_rel, Entity* ent){
