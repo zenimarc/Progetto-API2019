@@ -599,8 +599,10 @@ int comparator(const void *p, const void *q)
 }
 
 int entity_comparator(const void *p, const void *q){
-    if (((Entity *) p)->name == NULL || ((Entity *) q)->name == NULL) {return 0;} else {
-        return strcmp(((Entity *) p)->name, ((Entity *) q)->name);
+    Entity* ent1 = (*((Entity**)p));
+    Entity* ent2 = (*((Entity**)q)); //TODO nota BENE come ho fatto nella compare che riceve un struct ent*** ovvero Entity** quindi deferenzio
+    if (ent1->name == NULL || ent2->name == NULL) {return 0;} else {
+        return strcmp(ent1->name, ent2->name);
     }
 }
 
@@ -709,7 +711,7 @@ int vector_max(Vector* vector){
     return max;
 }
 void vector_qsort(Vector* vector){
-    qsort(vector->data, vector->capacity, sizeof(VECTOR_TYPE), entity_comparator); //TODO tenere d'occhio
+    qsort(&vector->data[0], vector->size, sizeof(VECTOR_TYPE), entity_comparator); //TODO tenere d'occhio
 }
 
 /*this function update the leaderboard adding new entities with same score and return 0; But if the new entity is higher
