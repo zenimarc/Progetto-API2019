@@ -131,27 +131,31 @@ int main() {
             scanf("%ms", &param1);
             cmd = delent;
             Entity* ent = NULL;
+            struct node* node = NULL;
             if(hashtable_remove_element(observed, param1) == 1){
                 //in this case we succesfully removed entity from observed and now we have to delete it from all relations hashtable
-                for(int rel_index=0; rel_index < RELS_ARRAY_SIZE; rel_index++){
-                    if(relations[rel_index].hashtable != NULL){
+                for(int rel_index=0; rel_index < RELS_ARRAY_SIZE; rel_index++) {
+                    if (relations[rel_index].hashtable != NULL) {
                         //in this case there is an hashable associated to this relation
-                        ent = hashtable_find_node_entity(relations[rel_index].hashtable, param1)->value; //todo: magari controllare che non sia null prima di richiedere value
-                        //we're gonna delete this entity from leaderboard if present
-                        vector_remove(relations[rel_index].leaderboard, ent);
-                        //we're gonna delete all out_rel of all entites we find in in_rel vector of this ent, envolving this ent.
-                        if(ent->in_rel != NULL) {
-                            for (int j = 0; j < ent->in_rel->size; j++) {
-                                Entity *ent_with_rel = ent->in_rel->data[j];
-                                vector_remove(ent_with_rel->out_rel, ent);
+                        node = hashtable_find_node_entity(relations[rel_index].hashtable,param1); //todo: magari controllare che non sia null prima di richiedere value
+                        if (node != NULL) {
+                            ent = node->value;
+                            //we're gonna delete this entity from leaderboard if present
+                            vector_remove(relations[rel_index].leaderboard, ent);
+                            //we're gonna delete all out_rel of all entites we find in in_rel vector of this ent, envolving this ent.
+                            if (ent->in_rel != NULL) {
+                                for (int j = 0; j < ent->in_rel->size; j++) {
+                                    Entity *ent_with_rel = ent->in_rel->data[j];
+                                    vector_remove(ent_with_rel->out_rel, ent);
+                                }
                             }
-                        }
-                        //we're gonna delete all in_rel of all entites we find in out_rel vector of this ent, envolving this ent.
-                        if(ent->out_rel != NULL) {
-                            for (int j = 0; j < ent->out_rel->size; j++) {
-                                Entity *ent_with_rel = ent->out_rel->data[j];
-                                vector_remove(ent_with_rel->in_rel, ent);
-                                leaderboard_remove(relations, rel_index, ent_with_rel);
+                            //we're gonna delete all in_rel of all entites we find in out_rel vector of this ent, envolving this ent.
+                            if (ent->out_rel != NULL) {
+                                for (int j = 0; j < ent->out_rel->size; j++) {
+                                    Entity *ent_with_rel = ent->out_rel->data[j];
+                                    vector_remove(ent_with_rel->in_rel, ent);
+                                    leaderboard_remove(relations, rel_index, ent_with_rel);
+                                }
                             }
                         }
                     }
@@ -552,7 +556,7 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 
     if (list == NULL)
     {
-        printf("This key does not exists\n");
+        if(DEBUG){printf("This key does not exists\n");}
         return -1;
     }
     else
@@ -561,7 +565,7 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 
         if (find_index == -1)
         {
-            printf("This key does not exists\n");
+            if(DEBUG){printf("This key does not exists\n");}
             return -1;
         }
         else
@@ -571,7 +575,7 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
             {
 
                 hashtable[index].head = temp->next;
-                printf("This key has been removed\n");
+                if(DEBUG){printf("This key has been removed\n");}
                 return 1;
             }
 
@@ -592,7 +596,7 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 
             }
 
-            printf("This key has been removed\n");
+            if(DEBUG){printf("This key has been removed\n");}
             return 1;
         }
 
