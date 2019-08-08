@@ -140,15 +140,19 @@ int main() {
                         //we're gonna delete this entity from leaderboard if present
                         vector_remove(relations[rel_index].leaderboard, ent);
                         //we're gonna delete all out_rel of all entites we find in in_rel vector of this ent, envolving this ent.
-                        for(int j=0; j<ent->in_rel->size; j++){
-                            Entity* ent_with_rel = ent->in_rel->data[j];
-                            vector_remove(ent_with_rel->out_rel, ent);
+                        if(ent->in_rel != NULL) {
+                            for (int j = 0; j < ent->in_rel->size; j++) {
+                                Entity *ent_with_rel = ent->in_rel->data[j];
+                                vector_remove(ent_with_rel->out_rel, ent);
+                            }
                         }
                         //we're gonna delete all in_rel of all entites we find in out_rel vector of this ent, envolving this ent.
-                        for(int j=0; j<ent->out_rel->size; j++){
-                            Entity* ent_with_rel = ent->out_rel->data[j];
-                            vector_remove(ent_with_rel->in_rel, ent);
-                            leaderboard_remove(relations, rel_index, ent_with_rel);
+                        if(ent->out_rel != NULL) {
+                            for (int j = 0; j < ent->out_rel->size; j++) {
+                                Entity *ent_with_rel = ent->out_rel->data[j];
+                                vector_remove(ent_with_rel->in_rel, ent);
+                                leaderboard_remove(relations, rel_index, ent_with_rel);
+                            }
                         }
                     }
                 }
