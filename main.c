@@ -74,6 +74,7 @@ void vector_double_capacity_if_full(Vector *vector);
 void vector_free(Vector *vector);
 void vector_qsort(Vector* vector);
 int vector_max(Vector* vector);
+int vector_remove(Vector* vector, Entity* ent);
 int leaderboard_update(Relation* curr_rel, Entity* ent);
 //_________________________________________________________________
 
@@ -86,6 +87,7 @@ void hashtable_display(struct arrayitem* hashtable);
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
 struct node* find_top(struct node *list, int max);
 int hashtable_ispresent(struct arrayitem* hashtable, char* key);
+struct node* hashtable_find_node_entity(struct arrayitem* hashtable, char* key);
 //_________________________________________________________________
 //Funzioni Entity
 Entity* entity_create(char* name);
@@ -95,6 +97,7 @@ void relations_init(Relation* relations);
 int comparator(const void *p, const void *q);
 int entity_comparator(const void *p, const void *q);
 int relations_new_type(Relation* relations_array, char* name);
+int relations_find_index(Relation* relations_array, char* name);
 //_________________________________________________________________
 //int hash(int);
 unsigned long hash(unsigned char *str);
@@ -161,6 +164,20 @@ int main() {
         } else if (strcmp(command, "delrel") == 0) {
             scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = delrel;
+            //TODO: non dovrebbe essere necesario ma potrei controllare se le entità sono observed
+            int rel_index = relations_find_index(relations, param3);
+            Entity* ent1 = hashtable_find_node_entity(relations[rel_index].hashtable, param1)->value;
+            Entity* ent2 = hashtable_find_node_entity(relations[rel_index].hashtable, param2)->value;
+            vector_remove(ent1->out_rel, ent2);
+            vector_remove(ent2->in_rel, ent1);
+            int top_ent_index = vector_find(relations[rel_index].leaderboard, ent2);
+            if(top_ent_index != -1){
+                //se trovo l'entità ricevente nella leaderboard la rimuovo perchè sicuramente non ha più lo stesso punteggio avendo perso una rel.
+                vector_set(relations[rel_index].leaderboard, top_ent_index, NULL);
+                vector_qsort(relations[rel_index].leaderboard);
+                relations[rel_index].leaderboard->size--;
+            }
+
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
             for(int i=0; i<RELS_ARRAY_SIZE; i++){
@@ -396,6 +413,25 @@ int hashtable_ispresent(struct arrayitem* hashtable, char* key){
         }
     }
 }
+/*this function retrieve the pointer to the node of the entity indicated in key searching in indicated hashtable*/
+struct node* hashtable_find_node_entity(struct arrayitem* hashtable, char* key){
+    int index = hash(key);
+    struct node *list = (struct node*) hashtable[index].head;
+    if (list == NULL){
+        /* Absence of Linked List at a given Index of Hash Table */
+        return NULL;
+    }else{
+        /* A Linked List is present at given index of Hash Table */
+        struct node* node_found = find_pointer(list, key);
+        if (node_found == NULL){
+            //Key not found in existing linked list
+            return NULL;
+        }else{
+            return node_found;
+        }
+    }
+}
+
 /*inserisce una nuova entità se non presente e restituisce il puntatore al node della lista che contiene i riferimenti per l'entità
  * se restituisce NULL è perchè è già presente l'entità*/
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key)
@@ -601,8 +637,24 @@ int comparator(const void *p, const void *q)
 int entity_comparator(const void *p, const void *q){
     Entity* ent1 = (*((Entity**)p));
     Entity* ent2 = (*((Entity**)q)); //TODO nota BENE come ho fatto nella compare che riceve un struct ent*** ovvero Entity** quindi deferenzio
-    if (ent1->name == NULL || ent2->name == NULL) {return 0;} else {
-        return strcmp(ent1->name, ent2->name);
+    if(ent1 == NULL){
+        if(ent2 == NULL){
+            //in case ent1 and ent2 are NULL
+            return 0;
+        }else {
+            //in case ent1 == NULL and ent2 has a value
+            return 1;
+        }
+    }else{
+        if(ent2 == NULL){
+            //in case ent1 != NULL and ent2 is NULL
+            return -1;
+        }else{
+            //in case ent1 and ent2 are != NULL, comparing by string
+            if (ent1->name == NULL || ent2->name == NULL) {return 0;} else {
+                return strcmp(ent1->name, ent2->name);
+            }
+        }
     }
 }
 
@@ -636,6 +688,19 @@ int relations_new_type(Relation* relations_array, char* name){
             return relations_new_type(relations_array, name); //TODO verifcare se funziona
         }
     }
+}
+/*returns index of relation array of the indicated relation name
+ * returns -1 if relation not found*/
+int relations_find_index(Relation* relations_array, char* name) {
+    for (int i = 0; i < RELS_ARRAY_SIZE; i++) {
+        if (relations_array[i].name != NULL) {
+            if (strcmp(relations_array[i].name, name) == 0) {
+                if (DEBUG) { printf("\nrelation %s trovata", name); }
+                return i;
+            }
+        }
+    }
+    return -1;
 }
 void relations_init(Relation* relations){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
@@ -685,7 +750,7 @@ void report_top(Relation* relations) {
             blank = 0;
             printf("%s", relations[i].name);
             leaderboard_print_names(curr_leaderboard);
-            printf("%d ", curr_leaderboard->data[0]->in_rel->size);
+            printf("%d; ", curr_leaderboard->data[0]->in_rel->size);
         }
     }
     if (blank){
@@ -710,6 +775,22 @@ int vector_max(Vector* vector){
     }
     return max;
 }
+/*this function removes the entity in the vector if found and returns 0
+ * if not found returns -1*/
+int vector_remove(Vector* vector, Entity* ent){
+    int vector_index = vector_find(vector, ent);
+    if(vector_index != -1){//rimuovo la rel solo se l'ho trovata, se non c'era vabbè
+        vector_set(vector, vector_index, NULL);
+        //dopo che ho settato a null faccio sort per mettere il null in fondo
+        vector_qsort(vector);
+        //poi decremento di 1 la size del vector
+        vector->size--;
+        return 0;
+    }else{
+        return -1;
+    }
+}
+
 void vector_qsort(Vector* vector){
     qsort(&vector->data[0], vector->size, sizeof(VECTOR_TYPE), entity_comparator); //TODO tenere d'occhio
 }
