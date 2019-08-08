@@ -81,7 +81,7 @@ int leaderboard_update(Relation* curr_rel, Entity* ent);
 //Funzioni per hashtable chain
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
-int remove_element(struct arrayitem* hashtable, char* key);
+int hashtable_remove_element(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
@@ -98,6 +98,7 @@ int comparator(const void *p, const void *q);
 int entity_comparator(const void *p, const void *q);
 int relations_new_type(Relation* relations_array, char* name);
 int relations_find_index(Relation* relations_array, char* name);
+void leaderboard_remove(Relation* relations, int rel_index, Entity* ent);
 //_________________________________________________________________
 //int hash(int);
 unsigned long hash(unsigned char *str);
@@ -105,6 +106,7 @@ unsigned long hash(unsigned char *str);
 //FUNZIONI DEL PROGETTO
 void fix_report_top(Relation* relations);
 void report_top(Relation* relations);
+void do_delrel(Relation* relations, char* param1, char* param2, char* param3);
 
 int main() {
 
@@ -128,6 +130,30 @@ int main() {
         } else if (strcmp(command, "delent") == 0) {
             scanf("%ms", &param1);
             cmd = delent;
+            Entity* ent = NULL;
+            if(hashtable_remove_element(observed, param1) == 1){
+                //in this case we succesfully removed entity from observed and now we have to delete it from all relations hashtable
+                for(int rel_index=0; rel_index < RELS_ARRAY_SIZE; rel_index++){
+                    if(relations[rel_index].hashtable != NULL){
+                        //in this case there is an hashable associated to this relation
+                        ent = hashtable_find_node_entity(relations[rel_index].hashtable, param1)->value; //todo: magari controllare che non sia null prima di richiedere value
+                        //we're gonna delete this entity from leaderboard if present
+                        vector_remove(relations[rel_index].leaderboard, ent);
+                        //we're gonna delete all out_rel of all entites we find in in_rel vector of this ent, envolving this ent.
+                        for(int j=0; j<ent->in_rel->size; j++){
+                            Entity* ent_with_rel = ent->in_rel->data[j];
+                            vector_remove(ent_with_rel->out_rel, ent);
+                        }
+                        //we're gonna delete all in_rel of all entites we find in out_rel vector of this ent, envolving this ent.
+                        for(int j=0; j<ent->out_rel->size; j++){
+                            Entity* ent_with_rel = ent->out_rel->data[j];
+                            vector_remove(ent_with_rel->in_rel, ent);
+                            leaderboard_remove(relations, rel_index, ent_with_rel);
+                        }
+                    }
+                }
+            }
+
         } else if (strcmp(command, "addrel") == 0) {
             scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = addrel;
@@ -165,18 +191,7 @@ int main() {
             scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = delrel;
             //TODO: non dovrebbe essere necesario ma potrei controllare se le entità sono observed
-            int rel_index = relations_find_index(relations, param3);
-            Entity* ent1 = hashtable_find_node_entity(relations[rel_index].hashtable, param1)->value;
-            Entity* ent2 = hashtable_find_node_entity(relations[rel_index].hashtable, param2)->value;
-            vector_remove(ent1->out_rel, ent2);
-            vector_remove(ent2->in_rel, ent1);
-            int top_ent_index = vector_find(relations[rel_index].leaderboard, ent2);
-            if(top_ent_index != -1){
-                //se trovo l'entità ricevente nella leaderboard la rimuovo perchè sicuramente non ha più lo stesso punteggio avendo perso una rel.
-                vector_set(relations[rel_index].leaderboard, top_ent_index, NULL);
-                vector_qsort(relations[rel_index].leaderboard);
-                relations[rel_index].leaderboard->size--;
-            }
+            do_delrel(relations, param1, param2, param3);
 
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
@@ -413,7 +428,8 @@ int hashtable_ispresent(struct arrayitem* hashtable, char* key){
         }
     }
 }
-/*this function retrieve the pointer to the node of the entity indicated in key searching in indicated hashtable*/
+/*this function retrieve the pointer to the node of the entity indicated in key searching in indicated hashtable
+ * returns NULL if can't find the key*/
 struct node* hashtable_find_node_entity(struct arrayitem* hashtable, char* key){
     int index = hash(key);
     struct node *list = (struct node*) hashtable[index].head;
@@ -525,7 +541,7 @@ struct node* get_element(struct node *list, int index)
 /* To remove an element from Hash Table
  * return -1 if key doesnt exist
  * return 1 if succesfully removed*/
-int remove_element(struct arrayitem* hashtable, char* key)
+int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 {
     int index = hash(key);
     struct node *list = (struct node*) hashtable[index].head;
@@ -547,7 +563,7 @@ int remove_element(struct arrayitem* hashtable, char* key)
         else
         {
             struct node *temp = list;
-            if (temp->key == key)
+            if (strcmp(temp->key, key) == 0)
             {
 
                 hashtable[index].head = temp->next;
@@ -555,7 +571,7 @@ int remove_element(struct arrayitem* hashtable, char* key)
                 return 1;
             }
 
-            while (temp->next->key != key)
+            while (strcmp(temp->next->key, key) != 0)
             {
                 temp = temp->next;
             }
@@ -778,6 +794,7 @@ int vector_max(Vector* vector){
 /*this function removes the entity in the vector if found and returns 0
  * if not found returns -1*/
 int vector_remove(Vector* vector, Entity* ent){
+    if(vector==NULL){return -1;}
     int vector_index = vector_find(vector, ent);
     if(vector_index != -1){//rimuovo la rel solo se l'ho trovata, se non c'era vabbè
         vector_set(vector, vector_index, NULL);
@@ -820,6 +837,27 @@ int leaderboard_update(Relation* curr_rel, Entity* ent){
     vector_append(curr_rel->leaderboard, ent);
     curr_rel->max_inrel = ent->in_rel->size;
     return 0;
+}
+
+void do_delrel(Relation* relations, char* param1, char* param2, char* param3){
+    int rel_index = relations_find_index(relations, param3);
+    if(rel_index != -1) {
+        Entity *ent1 = hashtable_find_node_entity(relations[rel_index].hashtable, param1)->value; //todo: non dovrebbe generare null però al limite controllare prima di pescare value
+        Entity *ent2 = hashtable_find_node_entity(relations[rel_index].hashtable, param2)->value;
+        vector_remove(ent1->out_rel, ent2);
+        vector_remove(ent2->in_rel, ent1);
+        leaderboard_remove(relations, rel_index, ent2);
+    }
+
+}
+void leaderboard_remove(Relation* relations, int rel_index, Entity* ent){
+    int top_ent_index = vector_find(relations[rel_index].leaderboard, ent);
+    if (top_ent_index != -1) {
+        //se trovo l'entità ricevente nella leaderboard la rimuovo perchè sicuramente non ha più lo stesso punteggio avendo perso una rel.
+        vector_set(relations[rel_index].leaderboard, top_ent_index, NULL);
+        vector_qsort(relations[rel_index].leaderboard);
+        relations[rel_index].leaderboard->size--;
+    }
 }
 
 /*
