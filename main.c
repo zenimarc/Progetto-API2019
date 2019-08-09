@@ -84,6 +84,7 @@ void leaderboard_rebuild(Relation* relations, int rel_index);
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
 int hashtable_remove_element(struct arrayitem* hashtable, char* key);
+int hashtable_remove_element_observed(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
@@ -135,7 +136,7 @@ int main() {
             cmd = delent;
             Entity* ent = NULL;
             struct node* node = NULL;
-            if(hashtable_remove_element(observed, param1) == 1){
+            if(hashtable_remove_element_observed(observed, param1) == 1){
                 //in this case we succesfully removed entity from observed and now we have to delete it from all relations hashtable
                 for(int rel_index=0; rel_index < RELS_ARRAY_SIZE; rel_index++) {
                     if (relations[rel_index].hashtable != NULL) {
@@ -143,8 +144,6 @@ int main() {
                         node = hashtable_find_node_entity(relations[rel_index].hashtable, param1); //todo: magari controllare che non sia null prima di richiedere value
                         if (node != NULL) {
                             ent = node->value;
-                            //now we delete the entity from hashtable
-                            hashtable_remove_element(relations[rel_index].hashtable, ent->name);
                             //we're gonna delete this entity from leaderboard if present
                             leaderboard_remove(relations, rel_index, ent);
                             //we're gonna delete all out_rel of all entites we find in in_rel vector of this ent, envolving this ent.
@@ -162,6 +161,8 @@ int main() {
                                     leaderboard_remove(relations, rel_index, ent_with_rel);
                                 }
                             }
+                            //now we delete the entity from hashtable
+                            hashtable_remove_element(relations[rel_index].hashtable, ent->name);
                             //now we rebuild the leaderboard
                             leaderboard_rebuild(relations, rel_index);
                             //at least we free the memory of eliminated ent
@@ -200,7 +201,6 @@ int main() {
                     if(DEBUG){printf("\nho aggiunto %s %s %s", ent1->value->name, param3, ent2->value->name);}
                     //aggiornamento leaderboard della rel corrente
                     leaderboard_update(&relations[rel_index], ent2->value);
-                    //free(param1)
 
                 }else{
                     if (DEBUG) {printf("\nrelazione %s %s %s GIA PRESENTE", ent1->value->name, param3, ent2->value->name);}
@@ -680,6 +680,67 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
             {
                 struct node* to_delete = temp->next;
                 temp->next = temp->next->next;
+                free(to_delete);
+
+            }
+
+            if(DEBUG){printf("This key has been removed\n");}
+            return 1;
+        }
+
+    }
+
+}
+
+int hashtable_remove_element_observed(struct arrayitem* hashtable, char* key)
+{
+    int index = hash(key);
+    struct node *list = (struct node*) hashtable[index].head;
+
+    if (list == NULL)
+    {
+        if(DEBUG){printf("This key does not exists\n");}
+        return -1;
+    }
+    else
+    {
+        int find_index = find(list, key);
+
+        if (find_index == -1)
+        {
+            if(DEBUG){printf("This key does not exists\n");}
+            return -1;
+        }
+        else
+        {
+            struct node *temp = list;
+            if (strcmp(temp->key, key) == 0)
+            {
+
+                hashtable[index].head = temp->next;
+                free(temp->key);
+                free(temp);
+                if(DEBUG){printf("This key has been removed\n");}
+                return 1;
+            }
+
+            while (strcmp(temp->next->key, key) != 0)
+            {
+                temp = temp->next;
+            }
+
+            if (hashtable[index].tail == temp->next)
+            {
+                temp->next = NULL;
+                hashtable[index].tail = temp;
+                free(temp->next);
+
+            }
+            else
+            {
+                struct node* to_delete = temp->next;
+                temp->next = temp->next->next;
+                free(to_delete->key);
                 free(to_delete);
 
             }
