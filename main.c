@@ -173,6 +173,7 @@ int main() {
                     }
                 }
             }
+            free(param1);
 
         } else if (strcmp(command, "addrel") == 0) {
             trash= scanf("%ms %ms %ms", &param1, &param2, &param3);
@@ -199,7 +200,7 @@ int main() {
                     if(DEBUG){printf("\nho aggiunto %s %s %s", ent1->value->name, param3, ent2->value->name);}
                     //aggiornamento leaderboard della rel corrente
                     leaderboard_update(&relations[rel_index], ent2->value);
-
+                    //free(param1)
 
                 }else{
                     if (DEBUG) {printf("\nrelazione %s %s %s GIA PRESENTE", ent1->value->name, param3, ent2->value->name);}
@@ -925,6 +926,7 @@ int leaderboard_update(Relation* curr_rel, Entity* ent){
             /*in this case the new entity is strictly major than the old one
              * delete or re-init all leaderboard and add this new entity*/
             vector_free(curr_rel->leaderboard);
+            free(curr_rel->leaderboard);
             curr_rel->leaderboard = vector_create();
             vector_append(curr_rel->leaderboard, ent);
             //aggiorno maxinrel con nuovo score di entità appena aggiunta
