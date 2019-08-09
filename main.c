@@ -114,7 +114,7 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3);
 int main() {
 
     //this simulate stdin
-    freopen("test.txt", "r", stdin);
+    //freopen("test.txt", "r", stdin);
     //Initialize relations array
     Relation relations[RELS_ARRAY_SIZE];
     relations_init(relations);
@@ -219,6 +219,8 @@ int main() {
             if(hashtable_ispresent(observed, param1) && hashtable_ispresent(observed, param2)) {
                 do_delrel(relations, param1, param2, param3);
             }
+            free(param1);
+            free(param2);
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
             for(int i=0; i<RELS_ARRAY_SIZE; i++){
@@ -850,7 +852,8 @@ void fix_report_top(Relation* relations){
 }
 void leaderboard_print_names(Vector* leaderboard){
     for(int i=0; i<leaderboard->size; i++){
-        printf("%s ", leaderboard->data[i]->name);
+        fputs(leaderboard->data[i]->name, stdout);
+        fputc(32, stdout);
     }
 }
 
@@ -861,15 +864,16 @@ void report_top(Relation* relations) {
         curr_leaderboard = relations[i].leaderboard;
         if (curr_leaderboard != NULL && curr_leaderboard->size != 0) {
             blank = 0;
-            printf("%s ", relations[i].name);
+            fputs(relations[i].name, stdout);
+            fputc(32, stdout);
             leaderboard_print_names(curr_leaderboard);
             printf("%d; ", curr_leaderboard->data[0]->in_rel->size);
         }
     }
     if (blank){
-        printf("none");
+        fputs("none", stdout);
     }
-    printf("\n");
+    fputc('\n', stdout);
 }
 
 /*Create and initialize a new dynamic vector*/
