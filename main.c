@@ -174,6 +174,8 @@ int main() {
                     }
                 }
             }
+            //we always free param1 since it's a delete
+            free(param1);
 
         } else if (strcmp(command, "addrel") == 0) {
             trash= scanf("%ms %ms %ms", &param1, &param2, &param3);
@@ -222,6 +224,7 @@ int main() {
             }
             free(param1);
             free(param2);
+            free(param3);
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
             for(int i=0; i<RELS_ARRAY_SIZE; i++){
