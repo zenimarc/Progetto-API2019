@@ -6,8 +6,8 @@
 #define ARRIVA printf("fin qua ci arriva \n");
 #define STAMPA(a) printf("il valore è %d", a);
 #define DEBUG 0
-#define VECTOR_INITIAL_CAPACITY 100
-#define VECTOR_INCREMENT 100
+#define VECTOR_INITIAL_CAPACITY 50
+#define VECTOR_INCREMENT 50
 #define HASH_TABLE_SIZE 100
 #define RELS_ARRAY_SIZE 20
 #define VECTOR_TYPE struct ent*
@@ -76,6 +76,7 @@ void vector_qsort(Vector* vector);
 int vector_max(Vector* vector);
 int vector_remove(Vector* vector, Entity* ent);
 int leaderboard_update(Relation* curr_rel, Entity* ent);
+void leaderboard_rebuild(Relation* relations, int rel_index);
 //_________________________________________________________________
 
 //Funzioni per hashtable chain
@@ -85,6 +86,7 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
+struct node* hashtable_insert_observed(struct arrayitem* hashtable, char* key);
 struct node* find_top(struct node *list, int max);
 int hashtable_ispresent(struct arrayitem* hashtable, char* key);
 struct node* hashtable_find_node_entity(struct arrayitem* hashtable, char* key);
@@ -117,18 +119,18 @@ int main() {
     relations_init(relations);
     //Initialize general hashtable to know entites observed
     Hashtable observed = hashtable_create();
-
+    int trash =0;
     int match = -1;
     char* command;
     char *param1, *param2, *param3;
     int cmd = -1;
     while((match = scanf("%ms", &command)) == 1) {
         if (strcmp(command, "addent") == 0) {
-            scanf("%ms", &param1);
+            trash= scanf("%ms", &param1);
             cmd = addent;
-            hashtable_insert(observed, param1);
+            hashtable_insert_observed(observed, param1);
         } else if (strcmp(command, "delent") == 0) {
-            scanf("%ms", &param1);
+            trash= scanf("%ms", &param1);
             cmd = delent;
             Entity* ent = NULL;
             struct node* node = NULL;
@@ -137,11 +139,13 @@ int main() {
                 for(int rel_index=0; rel_index < RELS_ARRAY_SIZE; rel_index++) {
                     if (relations[rel_index].hashtable != NULL) {
                         //in this case there is an hashable associated to this relation
-                        node = hashtable_find_node_entity(relations[rel_index].hashtable,param1); //todo: magari controllare che non sia null prima di richiedere value
+                        node = hashtable_find_node_entity(relations[rel_index].hashtable, param1); //todo: magari controllare che non sia null prima di richiedere value
                         if (node != NULL) {
                             ent = node->value;
+                            //now we delete the entity from hashtable
+                            hashtable_remove_element(relations[rel_index].hashtable, ent->name);
                             //we're gonna delete this entity from leaderboard if present
-                            vector_remove(relations[rel_index].leaderboard, ent);
+                            leaderboard_remove(relations, rel_index, ent);
                             //we're gonna delete all out_rel of all entites we find in in_rel vector of this ent, envolving this ent.
                             if (ent->in_rel != NULL) {
                                 for (int j = 0; j < ent->in_rel->size; j++) {
@@ -157,13 +161,15 @@ int main() {
                                     leaderboard_remove(relations, rel_index, ent_with_rel);
                                 }
                             }
+                            //at least we free the memory of eliminated ent
+                            free(ent);
                         }
                     }
                 }
             }
 
         } else if (strcmp(command, "addrel") == 0) {
-            scanf("%ms %ms %ms", &param1, &param2, &param3);
+            trash= scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = addrel;
 
             if(hashtable_ispresent(observed, param1) && hashtable_ispresent(observed, param2)) {
@@ -196,15 +202,18 @@ int main() {
             }
 
         } else if (strcmp(command, "delrel") == 0) {
-            scanf("%ms %ms %ms", &param1, &param2, &param3);
+            trash= scanf("%ms %ms %ms", &param1, &param2, &param3);
             cmd = delrel;
             //TODO: non dovrebbe essere necesario ma potrei controllare se le entità sono observed
-            do_delrel(relations, param1, param2, param3);
-
+            if(hashtable_ispresent(observed, param1) && hashtable_ispresent(observed, param2)) {
+                do_delrel(relations, param1, param2, param3);
+            }
         } else if (strcmp(command, "report") == 0) {
             cmd = report;
             for(int i=0; i<RELS_ARRAY_SIZE; i++){
-                vector_qsort(relations[i].leaderboard);
+                if(relations[i].leaderboard != NULL) {
+                    vector_qsort(relations[i].leaderboard);
+                }
             }
             report_top(relations);
         } else if(strcmp(command, "end") == 0){ //suppongo che se non è nessun altro comando allora è end.
@@ -213,23 +222,6 @@ int main() {
 
         //DA QUI LAVORIAMO SUL COMANDO CORRENTE
     }
-
-    hashtable_display(observed);
-    report_top(relations);
-    /*
-     * RELATIONS WITH DYNAMIC VECTOR TEST
-    Vector relations;
-    vector_init(&relations);
-    char* tempstring;
-    int i=0;
-    while(scanf("%ms", &tempstring) && tempstring != NULL){
-        vector_append(&relations, tempstring);
-        i++;
-    }
-    printf("abbiamo aggiunto %d elementi \n questoe ultimo elem: %s", i, vector_get(&relations, i-1));
-    */
-
-
 
 /*
  * BLOCCO PER TEST HASH E COLLISIONI
@@ -255,16 +247,6 @@ int main() {
            "->sono state trovate %d collisioni su un tot di: %d parole in input "
            "\n->Pari al %f percento di collisioni sulla totalità degli input", HASH_TABLE_SIZE, collisions,i, (float) collisions/i);
 */
-    /*
-       //TEST OF DYNAMIC ARRAY VECTOR TYPE
-       Vector dynamic_array;
-       vector_init(&dynamic_array);
-       for(int i=0; i<1000; i++)
-           vector_append(&dynamic_array, i);
-       for(int i=0; i<1000; i++)
-           printf("\n%d", vector_get(&dynamic_array, i));
-       printf("\nget: %d", vector_get(&dynamic_array, 1));
-   */
     return 0;
 }
 
@@ -534,6 +516,84 @@ struct node* hashtable_insert(struct arrayitem* hashtable, char* key)
     }*/
 
 }
+
+struct node* hashtable_insert_observed(struct arrayitem* hashtable, char* key)
+{
+    //float n = 0.0;
+    /* n => Load Factor, keeps check on whether rehashing is required or not */
+
+    int index = hash(key);
+
+    /* Extracting Linked List at a given index */
+    struct node *list = (struct node*) hashtable[index].head;
+
+
+    if (list == NULL)
+    {
+        /* Absence of Linked List at a given Index of Hash Table */
+
+        /* Creating an item to insert in the Hash Table */
+        struct node *item = (struct node*) malloc(sizeof(struct node));
+        item->key = key;
+        item->value = NULL;
+        item->next = NULL;
+
+        if (DEBUG) {printf("Inserting %s(key) \n", key);}
+        hashtable[index].head = item;
+        hashtable[index].tail = item;
+        //size++;
+        return item;
+    }
+    else
+    {
+        /* A Linked List is present at given index of Hash Table */
+
+        struct node* pointer_found = find_pointer(list, key);
+        if (pointer_found == NULL)
+        {
+            /*
+             *Key not found in existing linked list
+             *Adding the key at the end of the linked list
+            */
+
+            /* Creating an item to insert in the Hash Table */
+            struct node *item = (struct node*) malloc(sizeof(struct node));
+            item->key = key;
+            item->value = NULL;
+            item->next = NULL;
+
+            hashtable[index].tail->next = item;
+            hashtable[index].tail = item;
+            //size++;
+            return item;
+
+        }else
+        {
+            /*
+             *Key already present in linked list
+             *nothing to do
+            */
+            if (DEBUG){printf("%s key is already present, nothing to do", key);}
+            //struct node *element = get_element(list, find_index);
+            //element->value = value;
+            return pointer_found;
+        }
+
+    }
+
+    /*Calculating Load factor
+    n = (1.0 * size) / max;
+    if (n >= 0.75)
+    {
+        //rehashing
+
+        printf("going to rehash\n");
+        rehash();
+
+    }*/
+
+}
+
 /* Returns the node (Linked List item) located at given index  */
 struct node* get_element(struct node *list, int index)
 {
@@ -621,7 +681,7 @@ void hashtable_display(struct arrayitem* hashtable)
             printf("array[%d] has elements-: ", i);
             while (temp != NULL)
             {
-                printf("key= %s  value= %s\t", temp->key, temp->value->in_rel);
+                printf("key= %s\t", temp->key);
                 temp = temp->next;
             }
             printf("\n");
@@ -761,7 +821,7 @@ void fix_report_top(Relation* relations){
 }
 void leaderboard_print_names(Vector* leaderboard){
     for(int i=0; i<leaderboard->size; i++){
-        printf("%s", leaderboard->data[i]->name);
+        printf("%s ", leaderboard->data[i]->name);
     }
 }
 
@@ -772,7 +832,7 @@ void report_top(Relation* relations) {
         curr_leaderboard = relations[i].leaderboard;
         if (curr_leaderboard != NULL && curr_leaderboard->size != 0) {
             blank = 0;
-            printf("%s", relations[i].name);
+            printf("%s ", relations[i].name);
             leaderboard_print_names(curr_leaderboard);
             printf("%d; ", curr_leaderboard->data[0]->in_rel->size);
         }
@@ -821,13 +881,14 @@ void vector_qsort(Vector* vector){
 }
 
 /*this function update the leaderboard adding new entities with same score and return 0; But if the new entity is higher
- * free the leaderboard and return -1 so the caller know to create a new leaderboard with this entity*/
+ * free the leaderboard and create a new leaderboard with this entity*/
 int leaderboard_update(Relation* curr_rel, Entity* ent){
+    if(curr_rel == NULL || ent == NULL){return -1;}
+    if(ent->in_rel->size == 0){return 0;} //non devo appendere un entità che abbia 0 rels nella leaderboard mai!
     if(curr_rel->leaderboard->size != 0){
         if(ent->in_rel->size > curr_rel->max_inrel){
             /*in this case the new entity is strictly major than the old one
              * delete or re-init all leaderboard and add this new entity*/
-            // in caso arriva -1 significa che dobbiamo resettare la leaderboard perche trovata nuova ent con più punteggio, la aggiungiamo subito dopo
             vector_free(curr_rel->leaderboard);
             curr_rel->leaderboard = vector_create();
             vector_append(curr_rel->leaderboard, ent);
@@ -850,13 +911,48 @@ int leaderboard_update(Relation* curr_rel, Entity* ent){
 void do_delrel(Relation* relations, char* param1, char* param2, char* param3){
     int rel_index = relations_find_index(relations, param3);
     if(rel_index != -1) {
-        Entity *ent1 = hashtable_find_node_entity(relations[rel_index].hashtable, param1)->value; //todo: non dovrebbe generare null però al limite controllare prima di pescare value
-        Entity *ent2 = hashtable_find_node_entity(relations[rel_index].hashtable, param2)->value;
-        vector_remove(ent1->out_rel, ent2);
-        vector_remove(ent2->in_rel, ent1);
-        leaderboard_remove(relations, rel_index, ent2);
+        struct node *node1 = hashtable_find_node_entity(relations[rel_index].hashtable, param1);
+        struct node *node2 = hashtable_find_node_entity(relations[rel_index].hashtable, param2);
+        if (node1 != NULL && node2 != NULL) { //elimino la rel solo se trovo entrambe le enitità
+            Entity *ent1 = node1->value; //todo: non dovrebbe generare null però al limite controllare prima di pescare value
+            Entity *ent2 = node2->value;
+            vector_remove(ent1->out_rel, ent2);
+            vector_remove(ent2->in_rel, ent1);
+            leaderboard_remove(relations, rel_index, ent2);
+            leaderboard_remove(relations, rel_index, ent2);
+        }
     }
 
+}
+void leaderboard_rebuild(Relation* relations, int rel_index){
+    if (relations[rel_index].leaderboard != NULL && relations[rel_index].hashtable != NULL) {
+        if(DEBUG){printf("\nsto testando %s", relations[rel_index].name);}
+
+        int i = 0;
+        for (i = 0; i < HASH_TABLE_SIZE; i++)
+        {
+            struct node *temp = relations[rel_index].hashtable[i].head;
+            if (temp == NULL)
+            {
+                //nessuna lista in questo index della hashtable
+
+            }
+            else
+            {
+                //è stata trovata una lista di nodi con entità
+                while (temp != NULL)
+                {
+                    //qui provo tutti i nodi della lista
+                    if(temp->value->in_rel != NULL){ //todo: #time questo controllo potrebbe essere tolto perche già fatto in leaderboard_update
+                        leaderboard_update(&relations[rel_index], temp->value);
+                    }
+                    temp = temp->next;
+                }
+            }
+        }
+    }else{
+        printf("passati dei null a leaderboard_rebuild!");
+    }
 }
 void leaderboard_remove(Relation* relations, int rel_index, Entity* ent){
     int top_ent_index = vector_find(relations[rel_index].leaderboard, ent);
@@ -865,6 +961,11 @@ void leaderboard_remove(Relation* relations, int rel_index, Entity* ent){
         vector_set(relations[rel_index].leaderboard, top_ent_index, NULL);
         vector_qsort(relations[rel_index].leaderboard);
         relations[rel_index].leaderboard->size--;
+        if(relations[rel_index].leaderboard->size == 0){
+            /*in this case the leaderboard is empty, reset the max_inrel and try to rebuild*/
+            leaderboard_rebuild(relations, rel_index);
+            relations[rel_index].max_inrel = 0;
+        }
     }
 }
 
