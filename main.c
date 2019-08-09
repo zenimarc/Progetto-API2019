@@ -161,6 +161,8 @@ int main() {
                                     leaderboard_remove(relations, rel_index, ent_with_rel);
                                 }
                             }
+                            //now we rebuild the leaderboard
+                            leaderboard_rebuild(relations, rel_index);
                             //at least we free the memory of eliminated ent
                             free(ent);
                         }
@@ -920,11 +922,17 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3){
             vector_remove(ent2->in_rel, ent1);
             leaderboard_remove(relations, rel_index, ent2);
             leaderboard_remove(relations, rel_index, ent2);
+            //now we rebuild the leaderboard
+            leaderboard_rebuild(relations, rel_index);
         }
     }
 
 }
+/*this function delete the leaderboard and completely rebuild it*/
 void leaderboard_rebuild(Relation* relations, int rel_index){
+
+    relations[rel_index].max_inrel = 0;
+
     if (relations[rel_index].leaderboard != NULL && relations[rel_index].hashtable != NULL) {
         if(DEBUG){printf("\nsto testando %s", relations[rel_index].name);}
 
@@ -960,11 +968,8 @@ void leaderboard_remove(Relation* relations, int rel_index, Entity* ent){
         //se trovo l'entità ricevente nella leaderboard la rimuovo perchè sicuramente non ha più lo stesso punteggio avendo perso una rel.
         vector_set(relations[rel_index].leaderboard, top_ent_index, NULL);
         vector_qsort(relations[rel_index].leaderboard);
-        relations[rel_index].leaderboard->size--;
-        if(relations[rel_index].leaderboard->size == 0){
-            /*in this case the leaderboard is empty, reset the max_inrel and try to rebuild*/
-            relations[rel_index].max_inrel = 0;
-            leaderboard_rebuild(relations, rel_index);
+        if(relations[rel_index].leaderboard->size > 0) {
+            relations[rel_index].leaderboard->size--;
         }
     }
 }
