@@ -84,6 +84,7 @@ void leaderboard_rebuild(Relation* relations, int rel_index);
 struct arrayitem* hashtable_create();
 struct node* get_element(struct node *list, int index);
 int hashtable_remove_element(struct arrayitem* hashtable, char* key);
+int hashtable_remove_element_observed(struct arrayitem* hashtable, char* key);
 void hashtable_init(struct arrayitem* hashtable);
 void hashtable_display(struct arrayitem* hashtable);
 struct node* hashtable_insert(struct arrayitem* hashtable, char* key);
@@ -135,7 +136,7 @@ int main() {
             cmd = delent;
             Entity* ent = NULL;
             struct node* node = NULL;
-            if(hashtable_remove_element(observed, param1) == 1){
+            if(hashtable_remove_element_observed(observed, param1) == 1){
                 //in this case we succesfully removed entity from observed and now we have to delete it from all relations hashtable
                 for(int rel_index=0; rel_index < RELS_ARRAY_SIZE; rel_index++) {
                     if (relations[rel_index].hashtable != NULL) {
@@ -693,6 +694,67 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 
 }
 
+int hashtable_remove_element_observed(struct arrayitem* hashtable, char* key)
+{
+    int index = hash(key);
+    struct node *list = (struct node*) hashtable[index].head;
+
+    if (list == NULL)
+    {
+        if(DEBUG){printf("This key does not exists\n");}
+        return -1;
+    }
+    else
+    {
+        int find_index = find(list, key);
+
+        if (find_index == -1)
+        {
+            if(DEBUG){printf("This key does not exists\n");}
+            return -1;
+        }
+        else
+        {
+            struct node *temp = list;
+            if (strcmp(temp->key, key) == 0)
+            {
+
+                hashtable[index].head = temp->next;
+                free(temp->key);
+                free(temp);
+                if(DEBUG){printf("This key has been removed\n");}
+                return 1;
+            }
+
+            while (strcmp(temp->next->key, key) != 0)
+            {
+                temp = temp->next;
+            }
+
+            if (hashtable[index].tail == temp->next)
+            {
+                temp->next = NULL;
+                hashtable[index].tail = temp;
+                free(temp->next);
+
+            }
+            else
+            {
+                struct node* to_delete = temp->next;
+                temp->next = temp->next->next;
+                free(to_delete->key);
+                free(to_delete);
+
+            }
+
+            if(DEBUG){printf("This key has been removed\n");}
+            return 1;
+        }
+
+    }
+
+}
+
 /* To hashtable_display the contents of Hash Table */
 void hashtable_display(struct arrayitem* hashtable)
 {
@@ -927,6 +989,7 @@ int leaderboard_update(Relation* curr_rel, Entity* ent){
             /*in this case the new entity is strictly major than the old one
              * delete or re-init all leaderboard and add this new entity*/
             vector_free(curr_rel->leaderboard);
+            free(curr_rel->leaderboard);
             curr_rel->leaderboard = vector_create();
             vector_append(curr_rel->leaderboard, ent);
             //aggiorno maxinrel con nuovo score di entità appena aggiunta
