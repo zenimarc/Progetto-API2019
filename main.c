@@ -963,8 +963,8 @@ void leaderboard_remove(Relation* relations, int rel_index, Entity* ent){
         relations[rel_index].leaderboard->size--;
         if(relations[rel_index].leaderboard->size == 0){
             /*in this case the leaderboard is empty, reset the max_inrel and try to rebuild*/
-            leaderboard_rebuild(relations, rel_index);
             relations[rel_index].max_inrel = 0;
+            leaderboard_rebuild(relations, rel_index);
         }
     }
 }
