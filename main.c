@@ -113,7 +113,7 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3);
 int main() {
 
     //this simulate stdin
-    //freopen("test.txt", "r", stdin);
+    freopen("test.txt", "r", stdin);
     //Initialize relations array
     Relation relations[RELS_ARRAY_SIZE];
     relations_init(relations);
@@ -652,15 +652,16 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 
             if (hashtable[index].tail == temp->next)
             {
-                free(temp->next);
                 temp->next = NULL;
                 hashtable[index].tail = temp;
+                free(temp->next);
 
             }
             else
             {
-                free(temp->next);
+                struct node* to_delete = temp->next;
                 temp->next = temp->next->next;
+                free(to_delete);
 
             }
 
