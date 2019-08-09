@@ -6,9 +6,9 @@
 #define ARRIVA printf("fin qua ci arriva \n");
 #define STAMPA(a) printf("il valore è %d", a);
 #define DEBUG 0
-#define VECTOR_INITIAL_CAPACITY 50
-#define VECTOR_INCREMENT 50
-#define HASH_TABLE_SIZE 100
+#define VECTOR_INITIAL_CAPACITY 2
+#define VECTOR_INCREMENT 10
+#define HASH_TABLE_SIZE 512
 #define RELS_ARRAY_SIZE 20
 #define VECTOR_TYPE struct ent*
 
@@ -71,6 +71,7 @@ int vector_size(Vector *vector);
 int vector_find(Vector* vector, Entity* entity);
 void vector_set(Vector *vector, int index, VECTOR_TYPE value);
 void vector_double_capacity_if_full(Vector *vector);
+void vector_half_capacity(Vector *vector);
 void vector_free(Vector *vector);
 void vector_qsort(Vector* vector);
 int vector_max(Vector* vector);
@@ -113,7 +114,7 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3);
 int main() {
 
     //this simulate stdin
-    freopen("test.txt", "r", stdin);
+    //freopen("test.txt", "r", stdin);
     //Initialize relations array
     Relation relations[RELS_ARRAY_SIZE];
     relations_init(relations);
@@ -296,10 +297,19 @@ void vector_set(Vector *vector, int index, VECTOR_TYPE value) {
 void vector_double_capacity_if_full(Vector *vector) {
     if (vector->size >= vector->capacity) {
         // double vector->capacity and resize the allocated memory accordingly
-        vector->capacity *= 2;
+        vector->capacity += VECTOR_INCREMENT;
         vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
     }
 }
+
+void vector_half_capacity(Vector *vector){
+    if (vector->size < vector->capacity - VECTOR_INCREMENT) {
+        // double vector->capacity and resize the allocated memory accordingly
+        vector->capacity = vector->capacity - VECTOR_INCREMENT;
+        vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
+    }
+}
+
 /*this function tries to find an entity in the vector and if found returns its index
  * else return -1 if entity not found*/
 int vector_find(Vector* vector, Entity* entity){
@@ -799,7 +809,7 @@ void relations_init(Relation* relations){
     for(int i=0; i<RELS_ARRAY_SIZE; i++){
         relations[i].hashtable = NULL;
         relations[i].name = NULL;
-        relations[i].leaderboard = vector_create();
+        relations[i].leaderboard = NULL;
         relations[i].max_inrel = 0;
     }
 }
@@ -879,6 +889,8 @@ int vector_remove(Vector* vector, Entity* ent){
         vector_qsort(vector);
         //poi decremento di 1 la size del vector
         vector->size--;
+        //we try to half the vector if possible (the function will check)
+        vector_half_capacity(vector);
         return 0;
     }else{
         return -1;
