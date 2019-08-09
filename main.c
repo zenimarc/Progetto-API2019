@@ -953,10 +953,10 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3){
             Entity *ent2 = node2->value;
             vector_remove(ent1->out_rel, ent2);
             vector_remove(ent2->in_rel, ent1);
-            leaderboard_remove(relations, rel_index, ent2);
-            //now we rebuild the leaderboard
-            leaderboard_rebuild(relations, rel_index);
-
+            if(vector_find(relations[rel_index].leaderboard, ent2) != -1){
+                //ent2 era nella leaderboard
+                leaderboard_rebuild(relations, rel_index);
+            }
         }
     }
 
