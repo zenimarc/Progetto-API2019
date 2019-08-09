@@ -113,7 +113,7 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3);
 int main() {
 
     //this simulate stdin
-    freopen("test.txt", "r", stdin);
+    //freopen("test.txt", "r", stdin);
     //Initialize relations array
     Relation relations[RELS_ARRAY_SIZE];
     relations_init(relations);
@@ -164,6 +164,9 @@ int main() {
                             //now we rebuild the leaderboard
                             leaderboard_rebuild(relations, rel_index);
                             //at least we free the memory of eliminated ent
+                            if(ent->in_rel != NULL){ vector_free(ent->in_rel); }
+                            if(ent->out_rel != NULL){ vector_free(ent->out_rel); }
+                            free(ent->name);
                             free(ent);
                         }
                     }
@@ -637,6 +640,7 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
             {
 
                 hashtable[index].head = temp->next;
+                free(temp);
                 if(DEBUG){printf("This key has been removed\n");}
                 return 1;
             }
@@ -648,12 +652,14 @@ int hashtable_remove_element(struct arrayitem* hashtable, char* key)
 
             if (hashtable[index].tail == temp->next)
             {
+                free(temp->next);
                 temp->next = NULL;
                 hashtable[index].tail = temp;
 
             }
             else
             {
+                free(temp->next);
                 temp->next = temp->next->next;
 
             }
