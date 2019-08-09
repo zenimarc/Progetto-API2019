@@ -8,7 +8,7 @@
 #define DEBUG 0
 #define VECTOR_INITIAL_CAPACITY 8
 #define VECTOR_INCREMENT 10
-#define HASH_TABLE_SIZE 512
+#define HASH_TABLE_SIZE 1024
 #define RELS_ARRAY_SIZE 20
 #define VECTOR_TYPE struct ent*
 
@@ -954,9 +954,9 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3){
             vector_remove(ent1->out_rel, ent2);
             vector_remove(ent2->in_rel, ent1);
             leaderboard_remove(relations, rel_index, ent2);
-            leaderboard_remove(relations, rel_index, ent2);
             //now we rebuild the leaderboard
             leaderboard_rebuild(relations, rel_index);
+
         }
     }
 
