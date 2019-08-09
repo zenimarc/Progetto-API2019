@@ -6,7 +6,7 @@
 #define ARRIVA printf("fin qua ci arriva \n");
 #define STAMPA(a) printf("il valore è %d", a);
 #define DEBUG 0
-#define VECTOR_INITIAL_CAPACITY 2
+#define VECTOR_INITIAL_CAPACITY 8
 #define VECTOR_INCREMENT 10
 #define HASH_TABLE_SIZE 512
 #define RELS_ARRAY_SIZE 20
@@ -114,7 +114,7 @@ void do_delrel(Relation* relations, char* param1, char* param2, char* param3);
 int main() {
 
     //this simulate stdin
-    //freopen("test.txt", "r", stdin);
+    freopen("test.txt", "r", stdin);
     //Initialize relations array
     Relation relations[RELS_ARRAY_SIZE];
     relations_init(relations);
@@ -205,6 +205,11 @@ int main() {
                     if (DEBUG) {printf("\nrelazione %s %s %s GIA PRESENTE", ent1->value->name, param3, ent2->value->name);}
                 }
 
+            }else{
+                //non devo aggiungere niente, libero memoria buffer
+                free(param1);
+                free(param2);
+                free(param3);
             }
 
         } else if (strcmp(command, "delrel") == 0) {
@@ -226,7 +231,7 @@ int main() {
             cmd = end;
         } else break;
 
-        //DA QUI LAVORIAMO SUL COMANDO CORRENTE
+        free(command);
     }
 
 /*
@@ -297,15 +302,15 @@ void vector_set(Vector *vector, int index, VECTOR_TYPE value) {
 void vector_double_capacity_if_full(Vector *vector) {
     if (vector->size >= vector->capacity) {
         // double vector->capacity and resize the allocated memory accordingly
-        vector->capacity += VECTOR_INCREMENT;
+        vector->capacity *= 2;
         vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
     }
 }
 
 void vector_half_capacity(Vector *vector){
-    if (vector->size < vector->capacity - VECTOR_INCREMENT) {
+    if (vector->size < vector->capacity/2) {
         // double vector->capacity and resize the allocated memory accordingly
-        vector->capacity = vector->capacity - VECTOR_INCREMENT;
+        vector->capacity = vector->capacity /2;
         vector->data = realloc(vector->data, sizeof(VECTOR_TYPE) * vector->capacity);
     }
 }
@@ -586,8 +591,9 @@ struct node* hashtable_insert_observed(struct arrayitem* hashtable, char* key)
         {
             /*
              *Key already present in linked list
-             *nothing to do
+             *nothing to do except free the buffer
             */
+            free(key);
             if (DEBUG){printf("%s key is already present, nothing to do", key);}
             //struct node *element = get_element(list, find_index);
             //element->value = value;
@@ -781,6 +787,8 @@ int relations_new_type(Relation* relations_array, char* name){
         if(relations_array[i].name != NULL) {
             if (strcmp(relations_array[i].name, name) == 0) {
                 if (DEBUG) { printf("\nrelation %s gia presente", name); }
+                //visto che è già presente posso liberare il buffer del nome
+                free(name);
                 return i;
             }
         }else{
@@ -788,10 +796,12 @@ int relations_new_type(Relation* relations_array, char* name){
             relations_array[i].hashtable = hashtable_create();
             relations_array[i].leaderboard = vector_create();
             qsort(relations_array, RELS_ARRAY_SIZE, sizeof(Relation), comparator); //after hashtable_insert new rel we quicksort the relations array
-            return relations_new_type(relations_array, name); //TODO verifcare se funziona
+            return relations_find_index(relations_array, name); //TODO verifcare se funziona
         }
     }
 }
+
+
 /*returns index of relation array of the indicated relation name
  * returns -1 if relation not found*/
 int relations_find_index(Relation* relations_array, char* name) {
